@@ -1,0 +1,19 @@
+/* Theme customization - dark mode variables will be added here in later phases */
+:root[data-theme="dark"] {
+  --background: 222.2 47.4% 11.2%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 47.4% 11.2%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 47.4% 11.2%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 210 40% 96.1%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 215.4 16.3% 26.9%;
+  --muted-foreground: 215.4 16.3% 61.2%;
+  --accent: 215.4 16.3% 26.9%;
+  --accent-foreground: 210 40% 98%;
+  --border: 215.4 16.3% 26.9%;
+  --input: 215.4 16.3% 26.9%;
+}
