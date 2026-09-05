@@ -18,7 +18,10 @@ import {
   deleteCorrectiveActionController,
 } from "./rcaCorrectiveAction.controller";
 
-import { authenticate } from "../../middleware/auth.middleware";
+import {
+  authenticate,
+  authorize,
+} from "../../middleware/auth.middleware";
 
 const router = Router();
 
@@ -34,6 +37,7 @@ router.use(authenticate);
 
 router.post(
   "/",
+  authorize("admin"),
   createRCAController
 );
 
@@ -62,6 +66,7 @@ router.get(
 
 router.post(
   "/:id/corrective-actions",
+  authorize("admin"),
   createCorrectiveActionController
 );
 
@@ -101,6 +106,7 @@ router.get(
 
 router.put(
   "/:id/corrective-actions/:actionId",
+  authorize("admin"),
   updateCorrectiveActionController
 );
 
@@ -114,6 +120,7 @@ router.put(
 
 router.delete(
   "/:id/corrective-actions/:actionId",
+  authorize("admin"),
   deleteCorrectiveActionController
 );
 
@@ -143,6 +150,7 @@ router.get(
 
 router.put(
   "/:id",
+  authorize("admin"),
   updateRCAController
 );
 
@@ -152,6 +160,7 @@ router.put(
 
 router.delete(
   "/:id",
+  authorize("admin"),
   deleteRCAController
 );
 

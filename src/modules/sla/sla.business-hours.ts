@@ -9,13 +9,51 @@ export interface BusinessHoursConfig {
   workingDays: number[];
 }
 
+export const validateBusinessHoursConfig = (
+  config: BusinessHoursConfig
+): void => {
+  const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+  if (
+    !timePattern.test(config.startTime) ||
+    !timePattern.test(config.endTime)
+  ) {
+    throw new Error("Business hours must use HH:mm format");
+  }
+
+  if (config.startTime >= config.endTime) {
+    throw new Error("Business hours end time must be after start time");
+  }
+
+  if (!config.timezone?.trim()) {
+    throw new Error("Business hours timezone is required");
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: config.timezone,
+    }).format();
+  } catch {
+    throw new Error("Invalid business hours timezone");
+  }
+
+  if (
+    config.workingDays.length === 0 ||
+    config.workingDays.some(
+      (day) => !Number.isInteger(day) || day < 1 || day > 7
+    )
+  ) {
+    throw new Error("Business days must be integers from 1 to 7");
+  }
+};
+
 // ==========================================
 // DEFAULT CONFIGURATION
 // ==========================================
 
 export const getBusinessHoursConfig =
   (): BusinessHoursConfig => {
-    return {
+    const config = {
       startTime:
         process.env.SLA_BUSINESS_START ||
         "09:00",
@@ -36,6 +74,9 @@ export const getBusinessHoursConfig =
           .split(",")
           .map(Number),
     };
+
+    validateBusinessHoursConfig(config);
+    return config;
   };
 
 // ==========================================
@@ -235,6 +276,8 @@ export const addBusinessMinutes = (
   minutes: number,
   config: BusinessHoursConfig
 ): Date => {
+  validateBusinessHoursConfig(config);
+
   if (minutes <= 0) {
     return startDate;
   }

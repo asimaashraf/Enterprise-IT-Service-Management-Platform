@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import {
   registerUser,
   loginUser,
+  bootstrapAdmin,
 } from "./auth.service";
 
 import { AuthRequest } from "../../middleware/auth.middleware";
@@ -74,4 +75,24 @@ export const getCurrentUserController = (
     success: true,
     data: req.user,
   });
+};
+
+export const bootstrapController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const result = await bootstrapAdmin(req.body);
+
+    return res.status(201).json({
+      success: true,
+      message: "Bootstrap administrator created successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };

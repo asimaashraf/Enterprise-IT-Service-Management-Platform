@@ -8,6 +8,10 @@ import {
   deleteAsset,
   assignAsset,
   unassignAsset,
+  createMaintenanceRecord,
+  getMaintenanceHistory,
+  getWarrantyStatus,
+  getLifecycleHistory,
 } from "./asset.service";
 
 import { AuthRequest } from "../../middleware/auth.middleware";
@@ -108,7 +112,10 @@ export const getAssetController = async (
 
     res.status(200).json({
       success: true,
-      data: asset,
+      data: {
+        ...asset.toObject(),
+        warrantyStatus: getWarrantyStatus(asset),
+      },
     });
   } catch (error: any) {
     res.status(500).json({
@@ -137,7 +144,8 @@ export const updateAssetController = async (
     const asset = await updateAsset(
       req.params.id as string,
       req.user.organizationId,
-      req.body
+      req.body,
+      req.user.id
     );
 
     if (!asset) {
@@ -229,7 +237,8 @@ export const assignAssetController = async (
     const asset = await assignAsset(
       req.params.id as string,
       employeeId,
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.id
     );
 
     res.status(200).json({
@@ -263,7 +272,8 @@ export const unassignAssetController = async (
 
     const asset = await unassignAsset(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.id
     );
 
     res.status(200).json({
@@ -273,6 +283,100 @@ export const unassignAssetController = async (
     });
   } catch (error: any) {
     res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const createMaintenanceRecordController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId || !req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Organization access is required",
+      });
+    }
+
+    const record = await createMaintenanceRecord(
+      req.params.id as string,
+      req.user.organizationId,
+      {
+        ...req.body,
+        createdBy: req.user.id,
+      }
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: "Maintenance record created successfully",
+      data: record,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getMaintenanceHistoryController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: "Organization access is required",
+      });
+    }
+
+    const records = await getMaintenanceHistory(
+      req.params.id as string,
+      req.user.organizationId
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: records,
+    });
+  } catch (error: any) {
+    const status = error.message === "Asset not found" ? 404 : 400;
+    return res.status(status).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getLifecycleHistoryController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: "Organization access is required",
+      });
+    }
+
+    const records = await getLifecycleHistory(
+      req.params.id as string,
+      req.user.organizationId
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: records,
+    });
+  } catch (error: any) {
+    const status = error.message === "Asset not found" ? 404 : 400;
+    return res.status(status).json({
       success: false,
       message: error.message,
     });

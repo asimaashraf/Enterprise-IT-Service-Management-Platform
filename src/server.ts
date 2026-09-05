@@ -50,6 +50,8 @@ const startServer = async (): Promise<void> => {
     // INITIALIZE REDIS PUB/SUB
     // ======================================
 
+    await connectRedis();
+
     await initializeSocketSubscriber();
 
     // ======================================

@@ -29,7 +29,10 @@ export const createSLAController = async (
 
     const sla = await createSLAForIncident(
       req.params.incidentId as string,
-      req.user.organizationId
+      req.user.organizationId,
+      {
+        businessHours: req.body?.businessHours,
+      }
     );
 
     res.status(201).json({

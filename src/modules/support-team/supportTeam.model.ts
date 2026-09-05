@@ -37,7 +37,7 @@ const supportTeamSchema =
       members: [
         {
           type: Schema.Types.ObjectId,
-          ref: "User",
+          ref: "AuthUser",
         },
       ],
 

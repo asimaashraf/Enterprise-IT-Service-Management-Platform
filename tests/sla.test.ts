@@ -215,6 +215,40 @@ describe("SLA Management API", () => {
     ).toBe(false);
   });
 
+  it("should persist custom business hours for an SLA", async () => {
+    const incidentResponse = await request(app)
+      .post("/api/v1/incidents")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        incidentId: `INC-SLA-CUSTOM-${Date.now()}`,
+        title: "Custom hours SLA incident",
+        description: "Incident for custom SLA hours",
+        priority: "High",
+        severity: "Major",
+      });
+
+    expect(incidentResponse.status).toBe(201);
+
+    const response = await request(app)
+      .post(`/api/v1/slas/incidents/${incidentResponse.body.data._id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        businessHours: {
+          startTime: "08:00",
+          endTime: "16:00",
+          timezone: "UTC",
+          workingDays: [1, 2, 3, 4, 5],
+        },
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.businessHours).toMatchObject({
+      startHour: 8,
+      endHour: 16,
+      timezone: "UTC",
+    });
+  });
+
   // ==========================================
   // DUPLICATE SLA
   // ==========================================

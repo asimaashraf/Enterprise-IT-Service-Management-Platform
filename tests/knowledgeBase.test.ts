@@ -760,4 +760,163 @@ describe("Knowledge Base API", () => {
       createdArticleId = undefined;
     }
   );
+
+  it(
+    "should search tenant-scoped KB content by title, body, and category",
+    async () => {
+      const articleOne = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "VPN access troubleshooting",
+          content: "Reset the VPN client after certificate rotation.",
+          category: "Technical",
+          articleType: "Troubleshooting Guide",
+          isPublished: true,
+        });
+
+      const articleTwo = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Password reset FAQ",
+          content: "Users can reset passwords through the self-service portal.",
+          category: "Access",
+          articleType: "FAQ",
+          isPublished: true,
+        });
+
+      expect(articleOne.status).toBe(201);
+      expect(articleTwo.status).toBe(201);
+
+      const response = await request(app)
+        .get("/api/v1/knowledge-base/search")
+        .set("Authorization", `Bearer ${employeeToken}`)
+        .query({ q: "vpn reset" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.some((item: any) => item.title.includes("VPN"))).toBe(true);
+      expect(response.body.data.some((item: any) => item.title.includes("Password"))).toBe(false);
+    }
+  );
+
+  it(
+    "should not leak KB search results across tenants",
+    async () => {
+      const otherOrgArticle = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${otherOrganizationAdminToken}`)
+        .send({
+          title: "Another tenant VPN issue",
+          content: "This should not appear in the primary tenant search.",
+          category: "Technical",
+          articleType: "Article",
+          isPublished: true,
+        });
+
+      expect(otherOrgArticle.status).toBe(201);
+
+      const response = await request(app)
+        .get("/api/v1/knowledge-base/search")
+        .set("Authorization", `Bearer ${employeeToken}`)
+        .query({ q: "VPN issue" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.some((item: any) => item.organizationId === otherOrganizationId)).toBe(false);
+    }
+  );
+
+  it(
+    "should validate supported article types",
+    async () => {
+      const response = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Invalid article type",
+          content: "This should fail validation.",
+          articleType: "Unknown Type",
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toBe("Article type must be one of: Article, FAQ, Troubleshooting Guide, SOP");
+    }
+  );
+
+  it(
+    "should allow attachment metadata to be added and read only within the tenant",
+    async () => {
+      const articleResponse = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Attachment article",
+          content: "This article has an attached document.",
+          category: "Documentation",
+          articleType: "Article",
+          isPublished: true,
+        });
+
+      expect(articleResponse.status).toBe(201);
+      const articleId = articleResponse.body.data._id;
+
+      const addAttachmentResponse = await request(app)
+        .post(`/api/v1/knowledge-base/${articleId}/attachments`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          filename: "vpn-guide.pdf",
+          mimeType: "application/pdf",
+          size: 1200,
+          storageKey: "tenant/secure/vpn-guide.pdf",
+        });
+
+      expect(addAttachmentResponse.status).toBe(201);
+      expect(addAttachmentResponse.body.success).toBe(true);
+      expect(addAttachmentResponse.body.data.filename).toBe("vpn-guide.pdf");
+
+      const readResponse = await request(app)
+        .get(`/api/v1/knowledge-base/${articleId}/attachments`)
+        .set("Authorization", `Bearer ${employeeToken}`);
+
+      expect(readResponse.status).toBe(200);
+      expect(readResponse.body.success).toBe(true);
+      expect(readResponse.body.data).toHaveLength(1);
+
+      const otherTenantResponse = await request(app)
+        .get(`/api/v1/knowledge-base/${articleId}/attachments`)
+        .set("Authorization", `Bearer ${otherOrganizationAdminToken}`);
+
+      expect(otherTenantResponse.status).toBe(404);
+      expect(otherTenantResponse.body.success).toBe(false);
+    }
+  );
+
+  it(
+    "should reject invalid attachment access and unknown attachment IDs",
+    async () => {
+      const articleResponse = await request(app)
+        .post("/api/v1/knowledge-base")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Invalid attachment access",
+          content: "This article checks invalid attachment paths.",
+          articleType: "SOP",
+          isPublished: true,
+        });
+
+      expect(articleResponse.status).toBe(201);
+      const articleId = articleResponse.body.data._id;
+
+      const missingAttachment = await request(app)
+        .get(`/api/v1/knowledge-base/${articleId}/attachments/invalid-id`)
+        .set("Authorization", `Bearer ${adminToken}`);
+
+      expect(missingAttachment.status).toBe(404);
+      expect(missingAttachment.body.success).toBe(false);
+    }
+  );
 });

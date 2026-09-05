@@ -62,6 +62,27 @@ export const slaRepository = {
       });
   },
 
+  findByOrganization: async (
+    organizationId: string
+  ): Promise<ISLA[]> => {
+    return SLA.find({
+      organizationId,
+    }).sort({
+      createdAt: -1,
+    });
+  },
+
+  findActiveWithIncidents: async (): Promise<ISLA[]> => {
+    return SLA.find({
+      status: {
+        $in: ["Active", "Response Breached"],
+      },
+    }).populate(
+      "incidentId",
+      "incidentId title priority status reportedBy assignedTo organizationId createdAt"
+    );
+  },
+
   // ==========================================
   // FIND BY INCIDENT WITH POPULATION
   // ==========================================
@@ -109,5 +130,51 @@ export const slaRepository = {
         runValidators: true,
       }
     );
+  },
+
+  claimBreachNotification: async (
+    id: string,
+    field: "responseBreachNotifiedAt" | "resolutionBreachNotifiedAt"
+  ): Promise<ISLA | null> => {
+    return SLA.findOneAndUpdate(
+      {
+        _id: id,
+        [field]: {
+          $exists: false,
+        },
+      },
+      {
+        $set: {
+          [field]: new Date(),
+        },
+      },
+      {
+        returnDocument: "after",
+      }
+    );
+  },
+
+  claimEscalationPolicy: async (
+    id: string,
+    policyId: string
+  ): Promise<boolean> => {
+    const updated = await SLA.findOneAndUpdate(
+      {
+        _id: id,
+        escalatedPolicyIds: {
+          $ne: policyId,
+        },
+      },
+      {
+        $addToSet: {
+          escalatedPolicyIds: policyId,
+        },
+      },
+      {
+        returnDocument: "after",
+      }
+    );
+
+    return Boolean(updated);
   },
 };

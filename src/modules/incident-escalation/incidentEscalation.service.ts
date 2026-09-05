@@ -7,6 +7,8 @@ import {
 } from "./incidentEscalation.model";
 
 import * as escalationRepository from "./incidentEscalation.repository";
+import { authRepository } from "../auth/auth.repository";
+import { supportTeamRepository } from "../support-team/supportTeam.repository";
 
 // ==========================================
 // TYPES
@@ -101,11 +103,12 @@ const extractObjectId = (
 /**
  * Validate target according to targetType.
  */
-const validateTarget = (
+const validateTarget = async (
   targetType: EscalationTargetType,
+  organizationId: string,
   targetUser?: string,
   targetTeam?: string
-) => {
+): Promise<void> => {
   if (targetType === "User") {
     if (!targetUser) {
       throw new Error(
@@ -115,6 +118,18 @@ const validateTarget = (
 
     if (!isValidObjectId(targetUser)) {
       throw new Error("Invalid targetUser ID");
+    }
+
+    const user = await authRepository.findOne({
+      _id: targetUser,
+      organizationId,
+      isActive: true,
+    });
+
+    if (!user) {
+      throw new Error(
+        "Target user not found, inactive, or does not belong to this organization"
+      );
     }
   }
 
@@ -127,6 +142,18 @@ const validateTarget = (
 
     if (!isValidObjectId(targetTeam)) {
       throw new Error("Invalid targetTeam ID");
+    }
+
+    const team =
+      await supportTeamRepository.findByIdAndOrganization(
+        targetTeam,
+        organizationId
+      );
+
+    if (!team) {
+      throw new Error(
+        "Target support team not found or does not belong to this organization"
+      );
     }
   }
 };
@@ -172,8 +199,9 @@ export const createEscalationPolicy = async (
 
   validateThreshold(data.thresholdMinutes);
 
-  validateTarget(
+  await validateTarget(
     data.targetType,
+    data.organizationId,
     data.targetUser,
     data.targetTeam
   );
@@ -378,8 +406,9 @@ export const updateEscalationPolicy = async (
     thresholdMinutes
   );
 
-  validateTarget(
+  await validateTarget(
     targetType,
+    organizationId,
     targetUser,
     targetTeam
   );

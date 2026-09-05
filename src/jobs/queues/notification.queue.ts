@@ -7,6 +7,7 @@ import redis from "../../config/redis";
 // ==========================================
 
 export interface NotificationJobData {
+  notificationId?: string;
   userId: string;
   organizationId: string;
 
@@ -14,6 +15,7 @@ export interface NotificationJobData {
   message: string;
 
   type:
+    | "Incident Created"
     | "Incident Assigned"
     | "Incident Updated"
     | "Problem Assigned"

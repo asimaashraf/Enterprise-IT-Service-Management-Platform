@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import app from "../src/app";
 import { connectDB } from "../src/config/db";
 import Organization from "../src/modules/organization/organization.model";
+import { createTestUser } from "./test-fixtures";
 
 describe("RCA Lessons Learned Integration Tests", () => {
   // MongoDB Atlas connection can take longer than Jest's
@@ -79,34 +80,15 @@ describe("RCA Lessons Learned Integration Tests", () => {
     // REGISTER ADMIN
     // ==================================================
 
-    const adminRegister =
-      await request(app)
-        .post("/api/v1/auth/register")
-        .send({
-          name: "Lessons Admin",
-          email: adminEmail,
-          password: "Password123!",
-          role: "admin",
-          organizationId,
-        });
+    const admin = await createTestUser({
+      name: "Lessons Admin",
+      email: adminEmail,
+      password: "Password123!",
+      role: "admin",
+      organizationId,
+    });
 
-    console.log(
-      "ADMIN REGISTER STATUS:",
-      adminRegister.status
-    );
-
-    console.log(
-      "ADMIN REGISTER RESPONSE:",
-      adminRegister.body
-    );
-
-    expect(
-      adminRegister.status
-    ).toBe(201);
-
-    adminId =
-      adminRegister.body.data.user.id ??
-      adminRegister.body.data.user._id;
+    adminId = admin._id.toString();
 
     expect(adminId).toBeDefined();
 
@@ -404,7 +386,7 @@ describe("RCA Lessons Learned Integration Tests", () => {
   // ==================================================
 
   it(
-    "should allow authenticated employee to update lessons learned",
+    "should block authenticated employee from updating lessons learned",
     async () => {
       const response =
         await request(app)
@@ -427,14 +409,8 @@ describe("RCA Lessons Learned Integration Tests", () => {
         response.body
       );
 
-      expect(response.status).toBe(200);
-
-      expect(
-        response.body.data.lessonsLearned
-      ).toEqual([
-        "Always monitor database connection usage",
-        "Capacity planning should be proactive",
-      ]);
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
     }
   );
 

@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
 import { notificationRepository } from "./notification.repository";
+import { authRepository } from "../auth/auth.repository";
+import notificationQueue, {
+  NotificationJobData,
+} from "../../jobs/queues/notification.queue";
 
 import {
   NotificationType,
@@ -37,6 +41,18 @@ interface CreateNotificationData {
 
     entityId: string;
   };
+}
+
+export interface QueueNotificationEventData {
+  eventKey: string;
+  recipients: string[];
+  organizationId: string;
+  title: string;
+  message: string;
+  type: NotificationJobData["type"];
+  entityType?: NotificationJobData["entityType"];
+  entityId?: string;
+  priority?: NotificationJobData["priority"];
 }
 
 // ==========================================
@@ -81,6 +97,18 @@ export const createNotification = async (
     "organization ID"
   );
 
+  const recipientUser = await authRepository.findOne({
+    _id: recipient,
+    organizationId,
+    isActive: true,
+  });
+
+  if (!recipientUser) {
+    throw new Error(
+      "Notification recipient is inactive or does not belong to this organization"
+    );
+  }
+
   let relatedEntity;
 
   if (data.relatedEntity) {
@@ -117,6 +145,83 @@ export const createNotification = async (
 
     relatedEntity,
   });
+};
+
+export const queueNotificationEvent = async (
+  data: QueueNotificationEventData
+): Promise<number> => {
+  const organizationId = validateObjectId(
+    data.organizationId,
+    "organization ID"
+  );
+
+  const uniqueRecipients = [...new Set(data.recipients)];
+  let queued = 0;
+
+  for (const recipientId of uniqueRecipients) {
+    if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+      continue;
+    }
+
+    let recipient;
+
+    try {
+      recipient = await authRepository.findOne({
+        _id: recipientId,
+        organizationId,
+        isActive: true,
+      });
+    } catch (error: any) {
+      console.error(
+        "Failed to validate notification recipient:",
+        error?.message || error
+      );
+      continue;
+    }
+
+    if (!recipient) {
+      continue;
+    }
+
+    const notificationId = `NOT-${data.eventKey}-${recipientId}`;
+    const jobId = `notification-${data.eventKey}-${recipientId}`;
+
+    try {
+      await notificationQueue.add(
+        "notification-created",
+        {
+          notificationId,
+          userId: recipientId,
+          organizationId: organizationId.toString(),
+          title: data.title,
+          message: data.message,
+          type: data.type,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          priority: data.priority || "Medium",
+        },
+        {
+          jobId,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000,
+          },
+          removeOnComplete: true,
+          removeOnFail: false,
+        }
+      );
+
+      queued += 1;
+    } catch (error: any) {
+      console.error(
+        "Failed to queue notification event:",
+        error?.message || error
+      );
+    }
+  }
+
+  return queued;
 };
 
 // ==========================================

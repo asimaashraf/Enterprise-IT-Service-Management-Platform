@@ -15,6 +15,10 @@ export interface IAsset extends Document {
   purchaseDate?: Date;
   purchasePrice?: number;
 
+  warrantyProvider?: string;
+  warrantyStartDate?: Date;
+  warrantyEndDate?: Date;
+
   assignedTo?: mongoose.Types.ObjectId;
 
   organizationId: mongoose.Types.ObjectId;
@@ -22,6 +26,21 @@ export interface IAsset extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type AssetCategory =
+  | "Laptop"
+  | "Desktop"
+  | "Server"
+  | "Switch"
+  | "Router"
+  | "License"
+  | "Mobile Device";
+
+export type AssetStatus =
+  | "Available"
+  | "Assigned"
+  | "Maintenance"
+  | "Retired";
 
 const assetSchema = new Schema<IAsset>(
   {
@@ -39,6 +58,15 @@ const assetSchema = new Schema<IAsset>(
 
     category: {
       type: String,
+      enum: [
+        "Laptop",
+        "Desktop",
+        "Server",
+        "Switch",
+        "Router",
+        "License",
+        "Mobile Device",
+      ],
       required: true,
       trim: true,
     },
@@ -66,6 +94,19 @@ const assetSchema = new Schema<IAsset>(
     purchasePrice: {
       type: Number,
       min: 0,
+    },
+
+    warrantyProvider: {
+      type: String,
+      trim: true,
+    },
+
+    warrantyStartDate: {
+      type: Date,
+    },
+
+    warrantyEndDate: {
+      type: Date,
     },
 
     assignedTo: {

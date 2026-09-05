@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import redis from "../config/redis";
 import Notification from "../modules/notification/notification.model";
+import AuthUser from "../modules/auth/auth.model";
 
 import {
   NotificationJobData,
@@ -149,6 +150,7 @@ const notificationWorker =
       const {
         userId,
         organizationId,
+        notificationId,
         title,
         message,
         type,
@@ -176,6 +178,36 @@ const notificationWorker =
           reason:
             "Invalid recipient ObjectId",
         };
+      }
+
+      const recipient = await AuthUser.findOne({
+        _id: userId,
+        organizationId,
+        isActive: true,
+      }).select("_id");
+
+      if (!recipient) {
+        return {
+          success: false,
+          persisted: false,
+          reason: "Recipient is inactive or outside the organization",
+        };
+      }
+
+      if (notificationId) {
+        const existing = await Notification.findOne({
+          notificationId,
+          organizationId,
+        });
+
+        if (existing) {
+          return {
+            success: true,
+            persisted: false,
+            duplicate: true,
+            notificationId: existing._id.toString(),
+          };
+        }
       }
 
       // ========================================
@@ -248,7 +280,7 @@ const notificationWorker =
       const notification =
         await Notification.create({
           notificationId:
-            generateNotificationId(),
+            notificationId || generateNotificationId(),
 
           recipient:
             new mongoose.Types.ObjectId(

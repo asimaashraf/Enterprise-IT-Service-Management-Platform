@@ -400,7 +400,7 @@ describe("RCA Preventive Actions Integration Tests", () => {
   // ==========================================
 
   test(
-    "should allow authenticated employee to update preventive actions",
+    "should block authenticated employee from updating preventive actions",
     async () => {
       const response = await request(app)
         .put(`/api/v1/rcas/${rcaId}`)
@@ -416,15 +416,8 @@ describe("RCA Preventive Actions Integration Tests", () => {
 
       console.log("EMPLOYEE UPDATE RESPONSE:", response.body);
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-
-      expect(response.body.data.preventiveActions).toEqual([
-        "Introduce periodic network hardware checks",
-        "Create proactive hardware replacement schedule",
-        "Monitor switch health monthly",
-        "Review hardware lifecycle quarterly",
-      ]);
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
     }
   );
 

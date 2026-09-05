@@ -7,6 +7,7 @@ import {
 import {
   supportTeamRepository,
 } from "./supportTeam.repository";
+import { authRepository } from "../auth/auth.repository";
 
 interface CreateSupportTeamData {
   name: string;
@@ -15,6 +16,32 @@ interface CreateSupportTeamData {
   members?: string[];
 }
 
+const validateMembers = async (
+  memberIds: string[],
+  organizationId: string
+): Promise<mongoose.Types.ObjectId[]> => {
+  const uniqueIds = [...new Set(memberIds)];
+
+  if (uniqueIds.some((memberId) => !mongoose.Types.ObjectId.isValid(memberId))) {
+    throw new Error("One or more support team members have an invalid ID");
+  }
+
+  const members = await authRepository.findActiveEmployeesByOrganization(
+    organizationId
+  );
+  const activeMemberIds = new Set(
+    members.map((member) => member._id.toString())
+  );
+
+  if (uniqueIds.some((memberId) => !activeMemberIds.has(memberId))) {
+    throw new Error(
+      "Support team members must be active employees in this organization"
+    );
+  }
+
+  return uniqueIds.map((memberId) => new mongoose.Types.ObjectId(memberId));
+};
+
 // ==========================================
 // CREATE SUPPORT TEAM
 // ==========================================
@@ -22,12 +49,17 @@ interface CreateSupportTeamData {
 export const createSupportTeam = async (
   data: CreateSupportTeamData
 ): Promise<ISupportTeam> => {
+  if (!mongoose.Types.ObjectId.isValid(data.organizationId)) {
+    throw new Error("Invalid organization ID");
+  }
+
   const organizationId = new mongoose.Types.ObjectId(
     data.organizationId
   );
 
-  const members = (data.members || []).map(
-    (memberId) => new mongoose.Types.ObjectId(memberId)
+  const members = await validateMembers(
+    data.members || [],
+    data.organizationId
   );
 
   const existingTeam =
@@ -113,8 +145,9 @@ export const updateSupportTeam = async (
   };
 
   if (data.members !== undefined) {
-    updateData.members = data.members.map(
-      (memberId) => new mongoose.Types.ObjectId(memberId)
+    updateData.members = await validateMembers(
+      data.members,
+      organizationId
     );
   }
 

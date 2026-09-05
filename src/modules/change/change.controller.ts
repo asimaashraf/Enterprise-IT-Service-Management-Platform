@@ -207,6 +207,18 @@ export const updateChangeController = async (
       });
     }
 
+    if (
+      (req.body.status === "Approved" ||
+        req.body.status === "Rejected") &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only administrators can approve or reject changes",
+      });
+    }
+
     const changeId = req.params.id as string;
 
     // ------------------------------------------

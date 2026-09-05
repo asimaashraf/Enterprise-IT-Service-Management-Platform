@@ -3,6 +3,7 @@
 // ==========================================
 
 export type NotificationType =
+  | "Incident Created"
   | "Incident Assigned"
   | "Incident Updated"
   | "Problem Assigned"

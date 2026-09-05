@@ -119,6 +119,24 @@ export const findApplicable = async (
     });
 };
 
+export const findApplicableForThreshold = async (
+  organizationId: string,
+  priority: IncidentPriority,
+  thresholdMinutes: number
+) => {
+  return IncidentEscalationPolicy.find({
+    organizationId,
+    priority,
+    isActive: true,
+    thresholdMinutes: {
+      $lte: thresholdMinutes,
+    },
+  }).sort({
+    thresholdMinutes: 1,
+    escalationLevel: 1,
+  });
+};
+
 // ==========================================
 // UPDATE
 // ==========================================

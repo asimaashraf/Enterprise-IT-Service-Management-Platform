@@ -9,6 +9,7 @@ import {
 import { authRepository } from "../auth/auth.repository";
 import { assetRepository } from "../asset/asset.repository";
 import { changeRepository } from "./change.repository";
+import { queueNotificationEvent } from "../notification/notification.service";
 
 // ==========================================
 // TYPES
@@ -397,11 +398,30 @@ export const updateChange = async (
   // UPDATE DATABASE
   // ==========================================
 
-  return changeRepository.updateByIdAndOrganization(
+  const updatedChange = await changeRepository.updateByIdAndOrganization(
     id,
     organizationId,
     updateData
   );
+
+  if (
+    updatedChange &&
+    (requestedStatus === "Approved" || requestedStatus === "Rejected")
+  ) {
+    await queueNotificationEvent({
+      eventKey: `change-${requestedStatus.toLowerCase()}-${updatedChange._id.toString()}`,
+      recipients: [updatedChange.requestedBy.toString()],
+      organizationId,
+      title: `Change Request ${requestedStatus}`,
+      message: `Change request ${updatedChange.changeId} has been ${requestedStatus.toLowerCase()}.`,
+      type: "Change Request Approval",
+      entityType: "Change",
+      entityId: updatedChange._id.toString(),
+      priority: "High",
+    });
+  }
+
+  return updatedChange;
 };
 
 // ==========================================

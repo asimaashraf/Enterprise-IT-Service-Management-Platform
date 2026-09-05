@@ -6,6 +6,13 @@ This project is an **Enterprise IT Service Management & Incident Response Platfo
 
 > **Important:** This README documents the **current EEF MERN-014 ITSM project only**. It does not include details from the older Asset Management System project.
 
+## Canonical Backend Documentation
+
+- [Backend API Reference](docs/api/backend-reference.md)
+- [Setup and Deployment Guide](docs/api/deployment.md)
+- [Database Design](docs/api/database-design.md)
+- [Architecture](ai-context/ARCHITECTURE.md)
+
 ---
 
 # 1. Project Overview
@@ -292,8 +299,8 @@ Example request:
 
 ```json
 {
-  "email": "aliya.admin@example.com",
-  "password": "********"
+  "email": "<user-email>",
+  "password": "<user-password>"
 }
 ```
 
@@ -679,7 +686,7 @@ The frontend does not need to manually perform the assignment notification.
 Base route:
 
 ```text
-/api/v1/sla
+/api/v1/slas
 ```
 
 The SLA module provides the foundation for:
@@ -849,11 +856,9 @@ Asset information can be associated with IT operations and incidents where suppo
 
 Redis is used as part of the backend infrastructure.
 
-Configured through environment variables such as:
+Configured through:
 
 ```text
-REDIS_HOST
-REDIS_PORT
 REDIS_URL
 ```
 
@@ -960,17 +965,15 @@ The backend uses environment configuration.
 Typical variables include:
 
 ```env
-PORT=5000
+PORT=<api-port>
 
-MONGO_URI=...
+MONGO_URI=mongodb://<host>:<port>/<database>
 
-JWT_SECRET=...
+JWT_SECRET=<strong-random-jwt-secret>
 
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_URL=redis://127.0.0.1:6379
+REDIS_URL=redis://<host>:<port>
 
-CLIENT_URL=...
+CLIENT_URL=https://<client-host>
 ```
 
 Do not expose the actual `.env` file to the frontend developer or commit secrets to GitHub.

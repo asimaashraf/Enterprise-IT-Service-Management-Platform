@@ -9,6 +9,7 @@ import Organization from "../src/modules/organization/organization.model";
 import Problem from "../src/modules/problem/problem.model";
 import Incident from "../src/modules/incident/incident.model";
 import RCA from "../src/modules/rca/rca.model";
+import { createTestUser } from "./test-fixtures";
 
 jest.setTimeout(30000);
 
@@ -52,20 +53,15 @@ describe("RCA Related Incidents Integration Tests", () => {
     const adminEmail =
       `rca.related.admin.${Date.now()}@example.com`;
 
-    const adminRegister = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "RCA Related Admin",
-        email: adminEmail,
-        password: "Password123!",
-        role: "admin",
-        organizationId,
-      });
+    const admin = await createTestUser({
+      name: "RCA Related Admin",
+      email: adminEmail,
+      password: "Password123!",
+      role: "admin",
+      organizationId,
+    });
 
-    expect(adminRegister.status).toBe(201);
-    expect(adminRegister.body.success).toBe(true);
-
-    adminId = adminRegister.body.data.user.id;
+    adminId = admin._id.toString();
 
     // ==========================================
     // CREATE EMPLOYEE
@@ -316,7 +312,7 @@ describe("RCA Related Incidents Integration Tests", () => {
   // EMPLOYEE UPDATE
   // ==========================================
 
-  test("should allow authenticated employee to update related incidents", async () => {
+  test("should block authenticated employee from updating related incidents", async () => {
     const response = await request(app)
       .put(`/api/v1/rcas/${rcaId}`)
       .set(
@@ -335,12 +331,8 @@ describe("RCA Related Incidents Integration Tests", () => {
       response.body
     );
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(
-      response.body.data.relatedIncidents
-    ).toHaveLength(2);
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
   });
 
   // ==========================================
@@ -476,7 +468,7 @@ describe("RCA Related Incidents Integration Tests", () => {
 
     expect(
       response.body.data.relatedIncidents
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 
   // ==========================================

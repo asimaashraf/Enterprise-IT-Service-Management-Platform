@@ -88,6 +88,7 @@ const notificationSchema =
       type: {
         type: String,
         enum: [
+          "Incident Created",
           "Incident Assigned",
           "Incident Updated",
           "Problem Assigned",

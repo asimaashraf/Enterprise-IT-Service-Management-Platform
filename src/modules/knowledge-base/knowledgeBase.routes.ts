@@ -1,9 +1,13 @@
 import { Router } from "express";
 
 import {
+  addKnowledgeBaseAttachmentController,
   createKnowledgeBaseController,
+  getKnowledgeBaseAttachmentByIdController,
+  getKnowledgeBaseAttachmentsController,
   getKnowledgeBasesController,
   getKnowledgeBaseByIdController,
+  searchKnowledgeBasesController,
   updateKnowledgeBaseController,
   deleteKnowledgeBaseController,
 } from "./knowledgeBase.controller";
@@ -39,6 +43,17 @@ router.get(
 );
 
 // ==========================================
+// SEARCH KNOWLEDGE BASE ARTICLES
+// ADMIN + EMPLOYEE
+// ==========================================
+
+router.get(
+  "/search",
+  authenticate,
+  searchKnowledgeBasesController
+);
+
+// ==========================================
 // GET KNOWLEDGE BASE ARTICLE BY ID
 // ADMIN + EMPLOYEE
 // ==========================================
@@ -47,6 +62,29 @@ router.get(
   "/:id",
   authenticate,
   getKnowledgeBaseByIdController
+);
+
+// ==========================================
+// ATTACHMENT ROUTES
+// ==========================================
+
+router.post(
+  "/:id/attachments",
+  authenticate,
+  authorize("admin"),
+  addKnowledgeBaseAttachmentController
+);
+
+router.get(
+  "/:id/attachments",
+  authenticate,
+  getKnowledgeBaseAttachmentsController
+);
+
+router.get(
+  "/:id/attachments/:attachmentId",
+  authenticate,
+  getKnowledgeBaseAttachmentByIdController
 );
 
 // ==========================================

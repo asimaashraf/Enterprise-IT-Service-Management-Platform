@@ -11,6 +11,7 @@ import { connectDB } from "../src/config/db";
 describe("Change Management API", () => {
   let adminToken: string;
   let employeeToken: string;
+  let employeeId: string;
 
   let createdChangeId: string;
   let createdChangePublicId: string;
@@ -69,6 +70,7 @@ describe("Change Management API", () => {
     expect(employeeLogin.body.data.token).toBeDefined();
 
     employeeToken = employeeLogin.body.data.token;
+    employeeId = employeeLogin.body.data.user.id;
 
     console.log("BOTH USERS LOGGED IN SUCCESSFULLY");
   }, 60000);
@@ -406,7 +408,7 @@ describe("Change Management API", () => {
       )
       .send({
         assignedTo:
-          "6a855db2efe3dd908daacfdb",
+          employeeId,
       });
 
     /*
@@ -436,7 +438,7 @@ describe("Change Management API", () => {
       )
       .send({
         assignedTo:
-          "6a855db2efe3dd908daacfdb",
+          employeeId,
       });
 
     console.log(
@@ -455,6 +457,32 @@ describe("Change Management API", () => {
   // ==========================================
   // ADMIN APPROVE
   // ==========================================
+
+  it("should prevent employees from approving a change", async () => {
+    const response = await request(app)
+      .put(`/api/v1/changes/${createdChangeId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({
+        status: "Approved",
+        approvalReason: "Employee approval attempt",
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+  });
+
+  it("should prevent employees from rejecting a change", async () => {
+    const response = await request(app)
+      .put(`/api/v1/changes/${createdChangeId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({
+        status: "Rejected",
+        approvalReason: "Employee rejection attempt",
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+  });
 
   it("should allow an admin to approve a change", async () => {
     const response = await request(app)
@@ -490,6 +518,32 @@ describe("Change Management API", () => {
     expect(
       response.body.data.approvedAt
     ).toBeDefined();
+  });
+
+  it("should allow an admin to reject a valid change", async () => {
+    const createResponse = await request(app)
+      .post("/api/v1/changes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        changeId: `CHG-REJECT-${Date.now()}`,
+        title: "Change to Reject",
+        description: "Admin rejection regression test",
+      });
+
+    expect(createResponse.status).toBe(201);
+
+    const response = await request(app)
+      .put(`/api/v1/changes/${createResponse.body.data._id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        status: "Rejected",
+        approvalReason: "Change rejected during review",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe("Rejected");
+    expect(response.body.data.rejectedBy).toBeDefined();
   });
 
   // ==========================================

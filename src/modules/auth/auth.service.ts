@@ -31,6 +31,63 @@ interface AuthResponse {
   token: string;
 }
 
+interface BootstrapData {
+  bootstrapToken: string;
+  organizationName: string;
+  organizationSlug: string;
+  organizationDescription?: string;
+  name: string;
+  email: string;
+  password: string;
+}
+
+export const bootstrapAdmin = async (
+  data: BootstrapData
+): Promise<AuthResponse> => {
+  if (!process.env.BOOTSTRAP_TOKEN) {
+    throw new Error("Bootstrap is not configured");
+  }
+
+  if (data.bootstrapToken !== process.env.BOOTSTRAP_TOKEN) {
+    throw new Error("Invalid bootstrap token");
+  }
+
+  if ((await authRepository.countUsers()) > 0) {
+    throw new Error("Bootstrap is already completed");
+  }
+
+  const organization = await organizationRepository.create({
+    name: data.organizationName,
+    slug: data.organizationSlug,
+    description: data.organizationDescription,
+  });
+
+  try {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const user = await authRepository.create({
+      name: data.name,
+      email: data.email.toLowerCase().trim(),
+      password: hashedPassword,
+      role: "admin",
+      organizationId: organization._id,
+    });
+
+    return {
+      user: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organizationId: organization._id.toString(),
+      },
+      token: generateToken(user),
+    };
+  } catch (error) {
+    await organizationRepository.deleteById(organization._id.toString());
+    throw error;
+  }
+};
+
 // ==========================================
 // REGISTER USER
 // ==========================================
@@ -65,9 +122,9 @@ export const registerUser = async (
     email: data.email.toLowerCase(),
     password: hashedPassword,
 
-    // Use the requested role when provided.
-    // Default to employee when no role is supplied.
-    role: data.role ?? "employee",
+    // Public registration must never grant administrative access.
+    // Client-provided roles are intentionally ignored.
+    role: "employee",
 
     organizationId: new mongoose.Types.ObjectId(
       data.organizationId

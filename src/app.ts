@@ -21,6 +21,8 @@ import knowledgeBaseRoutes from "./modules/knowledge-base/knowledgeBase.routes";
 import serviceCatalogRoutes from "./modules/service-catalog/serviceCatalog.routes";
 import analyticsRoutes from "./modules/analytics/analytics.routes";
 import notificationRoutes from "./modules/notification/notification.routes";
+import auditRoutes from "./modules/audit/audit.routes";
+import { auditMutations } from "./middleware/audit.middleware";
 
 // ==========================================
 // INCIDENT ASSIGNMENT RULE ROUTES
@@ -56,6 +58,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(auditMutations);
 
 // ==========================================
 // REQUEST LOGGER
@@ -240,6 +243,15 @@ app.use(
 app.use(
   "/api/v1/notifications",
   notificationRoutes
+);
+
+// ==========================================
+// AUDIT LOGS
+// ==========================================
+
+app.use(
+  "/api/v1/audit-logs",
+  auditRoutes
 );
 
 // ==========================================

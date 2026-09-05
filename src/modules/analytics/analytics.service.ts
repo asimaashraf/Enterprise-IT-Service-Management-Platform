@@ -4,6 +4,9 @@ import { authRepository } from "../auth/auth.repository";
 import { incidentRepository } from "../incident/incident.repository";
 import { assetRepository } from "../asset/asset.repository";
 import { changeRepository } from "../change/change.repository";
+import { slaRepository } from "../sla/sla.repository";
+import { assetMaintenanceRepository } from "../asset/assetMaintenance.repository";
+import { assetLifecycleRepository } from "../asset/assetLifecycle.repository";
 
 // ==========================================
 // TYPES
@@ -26,6 +29,39 @@ export interface TechnicianPerformance {
   averageResolutionTimeHours: number | null;
 }
 
+export interface IncidentTrendsAnalytics {
+  totalIncidents: number;
+  open: number;
+  inProgress: number;
+  pending: number;
+  resolved: number;
+  closed: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  bySeverity: Record<string, number>;
+  trend: Array<{ date: string; count: number }>;
+}
+
+export interface SLAComplianceAnalytics {
+  totalSLAs: number;
+  active: number;
+  completed: number;
+  responseBreached: number;
+  resolutionBreached: number;
+  totalBreached: number;
+  compliant: number;
+  complianceRate: number;
+  byPriority: Record<string, number>;
+  byStatus: Record<string, number>;
+}
+
+export interface ResolutionTimeAnalytics {
+  totalResolvedIncidents: number;
+  averageResolutionHours: number | null;
+  medianResolutionHours: number | null;
+  byPriority: Record<string, number>;
+}
+
 export interface AssetHealthAnalytics {
   totalAssets: number;
 
@@ -36,6 +72,10 @@ export interface AssetHealthAnalytics {
 
   activeAssets: number;
   healthyAssets: number;
+
+  warrantyAlerts: number;
+  maintenanceAlerts: number;
+  lifecycleAlerts: number;
 
   healthRate: number;
   maintenanceRate: number;
@@ -86,6 +126,209 @@ const percentage = (
   return Number(
     ((numerator / denominator) * 100).toFixed(2)
   );
+};
+
+const getStatusCounts = <T extends { status?: string }>(items: T[]) => {
+  const counts: Record<string, number> = {};
+
+  for (const item of items) {
+    const status = item.status || "Unknown";
+    counts[status] = (counts[status] || 0) + 1;
+  }
+
+  return counts;
+};
+
+const getPriorityCounts = <T extends { priority?: string }>(items: T[]) => {
+  const counts: Record<string, number> = {};
+
+  for (const item of items) {
+    const priority = item.priority || "Unknown";
+    counts[priority] = (counts[priority] || 0) + 1;
+  }
+
+  return counts;
+};
+
+const getSeverityCounts = <T extends { severity?: string }>(items: T[]) => {
+  const counts: Record<string, number> = {};
+
+  for (const item of items) {
+    const severity = item.severity || "Unknown";
+    counts[severity] = (counts[severity] || 0) + 1;
+  }
+
+  return counts;
+};
+
+const getTrendSeries = (items: Array<{ createdAt?: Date }>) => {
+  const orderedDates: Record<string, number> = {};
+
+  for (let index = 29; index >= 0; index -= 1) {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - index);
+    orderedDates[date.toISOString().slice(0, 10)] = 0;
+  }
+
+  for (const item of items) {
+    if (!item.createdAt) {
+      continue;
+    }
+
+    const key = new Date(item.createdAt)
+      .toISOString()
+      .slice(0, 10);
+
+    if (orderedDates[key] !== undefined) {
+      orderedDates[key] += 1;
+    }
+  }
+
+  return Object.entries(orderedDates).map(([date, count]) => ({
+    date,
+    count,
+  }));
+};
+
+// ==========================================
+// INCIDENT TRENDS
+// ==========================================
+
+export const getIncidentTrends = async (
+  organizationId: string
+): Promise<IncidentTrendsAnalytics> => {
+  validateOrganizationId(organizationId);
+
+  const incidents = await incidentRepository.findAllByOrganization(
+    organizationId
+  );
+
+  const byStatus = getStatusCounts(incidents);
+  const byPriority = getPriorityCounts(incidents);
+  const bySeverity = getSeverityCounts(incidents);
+
+  return {
+    totalIncidents: incidents.length,
+    open: byStatus.Open || 0,
+    inProgress: byStatus["In Progress"] || 0,
+    pending: byStatus.Pending || 0,
+    resolved: byStatus.Resolved || 0,
+    closed: byStatus.Closed || 0,
+    byStatus,
+    byPriority,
+    bySeverity,
+    trend: getTrendSeries(incidents),
+  };
+};
+
+// ==========================================
+// SLA COMPLIANCE
+// ==========================================
+
+export const getSLACompliance = async (
+  organizationId: string
+): Promise<SLAComplianceAnalytics> => {
+  validateOrganizationId(organizationId);
+
+  const slas = await slaRepository.findByOrganization(organizationId);
+
+  const byPriority = getPriorityCounts(slas);
+  const byStatus = getStatusCounts(slas);
+
+  const active = slas.filter((sla) => sla.status === "Active").length;
+  const completed = slas.filter((sla) => sla.status === "Completed").length;
+  const responseBreached = slas.filter((sla) => sla.responseBreached).length;
+  const resolutionBreached = slas.filter((sla) => sla.resolutionBreached).length;
+  const totalBreached = responseBreached + resolutionBreached;
+
+  const compliant = slas.filter(
+    (sla) =>
+      !sla.responseBreached &&
+      !sla.resolutionBreached &&
+      (sla.status === "Active" || sla.status === "Completed")
+  ).length;
+
+  return {
+    totalSLAs: slas.length,
+    active,
+    completed,
+    responseBreached,
+    resolutionBreached,
+    totalBreached,
+    compliant,
+    complianceRate: percentage(compliant, slas.length),
+    byPriority,
+    byStatus,
+  };
+};
+
+// ==========================================
+// RESOLUTION TIME
+// ==========================================
+
+export const getResolutionTime = async (
+  organizationId: string
+): Promise<ResolutionTimeAnalytics> => {
+  validateOrganizationId(organizationId);
+
+  const incidents = await incidentRepository.findAllByOrganization(
+    organizationId
+  );
+
+  const resolvedIncidents = incidents.filter(
+    (incident) =>
+      incident.status === "Resolved" ||
+      incident.status === "Closed"
+  );
+
+  const durations = resolvedIncidents
+    .map((incident) => {
+      const endDate = incident.resolvedAt ?? incident.closedAt;
+
+      if (!endDate || !incident.createdAt) {
+        return null;
+      }
+
+      const start = new Date(incident.createdAt).getTime();
+      const end = new Date(endDate).getTime();
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        return null;
+      }
+
+      return (end - start) / (1000 * 60 * 60);
+    })
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+
+  const averageResolutionHours =
+    durations.length === 0
+      ? null
+      : Number(
+          (
+            durations.reduce((sum, value) => sum + value, 0) /
+            durations.length
+          ).toFixed(2)
+        );
+
+  const medianResolutionHours =
+    durations.length === 0
+      ? null
+      : Number(
+          (
+            durations[Math.floor(durations.length / 2)] ||
+            durations[0]
+          ).toFixed(2)
+        );
+
+  const byPriority = getPriorityCounts(resolvedIncidents);
+
+  return {
+    totalResolvedIncidents: resolvedIncidents.length,
+    averageResolutionHours,
+    medianResolutionHours,
+    byPriority,
+  };
 };
 
 // ==========================================
@@ -286,6 +529,16 @@ export const getAssetHealth = async (
       organizationId
     );
 
+  const maintenanceRecords =
+    await assetMaintenanceRepository.findByOrganization(
+      organizationId
+    );
+
+  const lifecycleEvents =
+    await assetLifecycleRepository.findByOrganization(
+      organizationId
+    );
+
   const totalAssets = assets.length;
 
   const available = assets.filter(
@@ -308,23 +561,52 @@ export const getAssetHealth = async (
       asset.status === "Retired"
   ).length;
 
-  /*
-   * Active assets are assets currently
-   * available for use or assigned to users.
-   */
+  const activeAssets = available + assigned;
+  const healthyAssets = activeAssets;
 
-  const activeAssets =
-    available + assigned;
+  const now = Date.now();
+  const warrantyAlerts = assets.filter((asset) => {
+    if (!asset.warrantyEndDate) {
+      return false;
+    }
 
-  /*
-   * Healthy assets are active assets.
-   *
-   * Maintenance and retired assets are
-   * considered unhealthy/inactive.
-   */
+    return new Date(asset.warrantyEndDate).getTime() <= now + 30 * 24 * 60 * 60 * 1000;
+  }).length;
 
-  const healthyAssets =
-    activeAssets;
+  const maintenanceAlertSet = new Set<string>();
+
+  for (const record of maintenanceRecords) {
+    const recordDate = new Date(record.date).getTime();
+    const isRecent = now - recordDate <= 90 * 24 * 60 * 60 * 1000;
+
+    if (isRecent) {
+      maintenanceAlertSet.add(record.assetId.toString());
+    }
+  }
+
+  for (const asset of assets) {
+    if (asset.status === "Maintenance") {
+      maintenanceAlertSet.add(asset._id.toString());
+    }
+  }
+
+  const maintenanceAlerts = maintenanceAlertSet.size;
+
+  const lifecycleAlertSet = new Set<string>();
+
+  for (const event of lifecycleEvents) {
+    if (event.newStatus === "Retired" || event.previousStatus === "Retired") {
+      lifecycleAlertSet.add(event.assetId.toString());
+    }
+  }
+
+  for (const asset of assets) {
+    if (asset.status === "Retired") {
+      lifecycleAlertSet.add(asset._id.toString());
+    }
+  }
+
+  const lifecycleAlerts = lifecycleAlertSet.size;
 
   const healthRate = percentage(
     healthyAssets,
@@ -355,6 +637,10 @@ export const getAssetHealth = async (
     activeAssets,
 
     healthyAssets,
+
+    warrantyAlerts,
+    maintenanceAlerts,
+    lifecycleAlerts,
 
     healthRate,
 

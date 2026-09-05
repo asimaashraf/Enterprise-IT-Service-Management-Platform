@@ -2,9 +2,13 @@ import { Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 
 import {
+  addKnowledgeBaseAttachment,
   createKnowledgeBase,
+  getKnowledgeBaseAttachmentById,
+  getKnowledgeBaseAttachments,
   getKnowledgeBases,
   getKnowledgeBaseById,
+  searchKnowledgeBases,
   updateKnowledgeBase,
   deleteKnowledgeBase,
 } from "./knowledgeBase.service";
@@ -23,6 +27,7 @@ export const createKnowledgeBaseController = async (
       title,
       content,
       category,
+      articleType,
       isPublished,
     } = req.body;
 
@@ -30,6 +35,13 @@ export const createKnowledgeBaseController = async (
       return res.status(400).json({
         success: false,
         message: "Title and content are required",
+      });
+    }
+
+    if (articleType && !["Article", "FAQ", "Troubleshooting Guide", "SOP"].includes(articleType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Article type must be one of: Article, FAQ, Troubleshooting Guide, SOP",
       });
     }
 
@@ -53,6 +65,7 @@ export const createKnowledgeBaseController = async (
       category,
       req.user.organizationId,
       req.user.id,
+      articleType ?? "Article",
       isPublished ?? false
     );
 
@@ -62,7 +75,7 @@ export const createKnowledgeBaseController = async (
       data: article,
     });
   } catch (error: any) {
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
       message: error.message,
     });
@@ -143,6 +156,161 @@ export const getKnowledgeBaseByIdController = async (
   }
 };
 
+export const searchKnowledgeBasesController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization information is missing",
+      });
+    }
+
+    const query = (req.query.q as string) || "";
+    const articles = await searchKnowledgeBases(
+      req.user.organizationId,
+      query
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: articles,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const addKnowledgeBaseAttachmentController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization information is missing",
+      });
+    }
+
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "User information is missing",
+      });
+    }
+
+    const { filename, mimeType, size, storageKey } = req.body;
+    const article = await addKnowledgeBaseAttachment(
+      req.params.id as string,
+      req.user.organizationId,
+      {
+        filename,
+        mimeType,
+        size,
+        storageKey,
+        uploadedBy: req.user.id,
+      }
+    );
+
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: "Knowledge base article not found",
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Attachment added successfully",
+      data: article.attachments[article.attachments.length - 1],
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getKnowledgeBaseAttachmentsController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization information is missing",
+      });
+    }
+
+    const attachments = await getKnowledgeBaseAttachments(
+      req.params.id as string,
+      req.user.organizationId
+    );
+
+    if (!attachments) {
+      return res.status(404).json({
+        success: false,
+        message: "Knowledge base article not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: attachments,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getKnowledgeBaseAttachmentByIdController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!req.user?.organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Organization information is missing",
+      });
+    }
+
+    const attachment = await getKnowledgeBaseAttachmentById(
+      req.params.id as string,
+      req.user.organizationId,
+      req.params.attachmentId as string
+    );
+
+    if (!attachment) {
+      return res.status(404).json({
+        success: false,
+        message: "Attachment not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: attachment,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // ==========================================
 // UPDATE KNOWLEDGE BASE ARTICLE
 // ADMIN ONLY
@@ -157,6 +325,18 @@ export const updateKnowledgeBaseController = async (
       return res.status(400).json({
         success: false,
         message: "Organization information is missing",
+      });
+    }
+
+    const { articleType } = req.body;
+
+    if (
+      articleType &&
+      !["Article", "FAQ", "Troubleshooting Guide", "SOP"].includes(articleType)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Article type must be one of: Article, FAQ, Troubleshooting Guide, SOP",
       });
     }
 
@@ -179,7 +359,7 @@ export const updateKnowledgeBaseController = async (
       data: article,
     });
   } catch (error: any) {
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
       message: error.message,
     });

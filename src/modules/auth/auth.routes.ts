@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   registerController,
+  bootstrapController,
   loginController,
   getCurrentUserController,
 } from "./auth.controller";
@@ -18,6 +19,11 @@ const router = Router();
 router.post(
   "/register",
   registerController
+);
+
+router.post(
+  "/bootstrap",
+  bootstrapController
 );
 
 // LOGIN

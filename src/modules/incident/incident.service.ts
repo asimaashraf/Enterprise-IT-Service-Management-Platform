@@ -15,6 +15,7 @@ import {
 } from "../incident-assignment/incidentAssignmentRule.service";
 
 import { notificationQueue } from "../../jobs/queues/notification.queue";
+import { queueNotificationEvent } from "../notification/notification.service";
 
 // ==========================================
 // TYPES
@@ -453,6 +454,22 @@ export const createIncident = async (
       `Incident ${incident.incidentId} has been automatically assigned to you.`
     );
   }
+
+  const admins = await authRepository.findActiveAdminsByOrganization(
+    data.organizationId
+  );
+
+  await queueNotificationEvent({
+    eventKey: `incident-created-${incident._id.toString()}`,
+    recipients: admins.map((admin) => admin._id.toString()),
+    organizationId: data.organizationId,
+    title: "New Incident",
+    message: `Incident ${incident.incidentId} has been created.`,
+    type: "Incident Created",
+    entityType: "Incident",
+    entityId: incident._id.toString(),
+    priority: getNotificationPriority(incident.priority),
+  });
 
   // ==========================================
   // RETURN POPULATED INCIDENT

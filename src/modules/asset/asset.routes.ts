@@ -8,6 +8,9 @@ import {
   deleteAssetController,
   assignAssetController,
   unassignAssetController,
+  createMaintenanceRecordController,
+  getMaintenanceHistoryController,
+  getLifecycleHistoryController,
 } from "./asset.controller";
 
 import {
@@ -46,6 +49,25 @@ router.get(
   "/:id",
   authenticate,
   getAssetController
+);
+
+router.get(
+  "/:id/maintenance",
+  authenticate,
+  getMaintenanceHistoryController
+);
+
+router.get(
+  "/:id/lifecycle",
+  authenticate,
+  getLifecycleHistoryController
+);
+
+router.post(
+  "/:id/maintenance",
+  authenticate,
+  authorize("admin"),
+  createMaintenanceRecordController
 );
 
 // ==========================================

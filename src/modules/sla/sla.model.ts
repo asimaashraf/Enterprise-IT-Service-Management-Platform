@@ -61,6 +61,12 @@ export interface ISLA extends Document {
 
   resolutionBreached: boolean;
 
+  responseBreachNotifiedAt?: Date;
+
+  resolutionBreachNotifiedAt?: Date;
+
+  escalatedPolicyIds: mongoose.Types.ObjectId[];
+
   businessHours: SLABusinessHours;
 
   createdAt: Date;
@@ -203,6 +209,19 @@ const slaSchema = new Schema<ISLA>(
     resolutionBreached: {
       type: Boolean,
       default: false,
+    },
+
+    responseBreachNotifiedAt: {
+      type: Date,
+    },
+
+    resolutionBreachNotifiedAt: {
+      type: Date,
+    },
+
+    escalatedPolicyIds: {
+      type: [Schema.Types.ObjectId],
+      default: [],
     },
 
     // ==========================================

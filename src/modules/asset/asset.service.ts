@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 import { authRepository } from "../auth/auth.repository";
 import { assetRepository } from "./asset.repository";
+import { AssetCategory } from "./asset.model";
+import {
+  AssetMaintenanceType,
+  AssetMaintenanceStatus,
+} from "./assetMaintenance.model";
+import { assetMaintenanceRepository } from "./assetMaintenance.repository";
+import { assetLifecycleRepository } from "./assetLifecycle.repository";
+import AuthUser from "../auth/auth.model";
 
 // ==========================================
 // TYPES
@@ -9,22 +17,35 @@ import { assetRepository } from "./asset.repository";
 interface CreateAssetData {
   assetId: string;
   name: string;
-  category: string;
+  category: AssetCategory;
   description?: string;
   status?: "Available" | "Assigned" | "Maintenance" | "Retired";
   purchaseDate?: Date;
   purchasePrice?: number;
+  warrantyProvider?: string;
+  warrantyStartDate?: Date;
+  warrantyEndDate?: Date;
   organizationId: string;
 }
 
 interface UpdateAssetData {
   name?: string;
-  category?: string;
+  category?: AssetCategory;
   description?: string;
   status?: "Available" | "Assigned" | "Maintenance" | "Retired";
   purchaseDate?: Date;
   purchasePrice?: number;
+  warrantyProvider?: string;
+  warrantyStartDate?: Date;
+  warrantyEndDate?: Date;
 }
+
+const lifecycleTransitions: Record<string, string[]> = {
+  Available: ["Assigned", "Maintenance", "Retired"],
+  Assigned: ["Available", "Maintenance", "Retired"],
+  Maintenance: ["Available", "Retired"],
+  Retired: [],
+};
 
 // ==========================================
 // HELPERS
@@ -70,6 +91,9 @@ export const createAsset = async (
     status: data.status || "Available",
     purchaseDate: data.purchaseDate,
     purchasePrice: data.purchasePrice,
+    warrantyProvider: data.warrantyProvider,
+    warrantyStartDate: data.warrantyStartDate,
+    warrantyEndDate: data.warrantyEndDate,
     organizationId: new mongoose.Types.ObjectId(
       data.organizationId
     ),
@@ -121,7 +145,8 @@ export const getAssetById = async (
 export const updateAsset = async (
   id: string,
   organizationId: string,
-  data: UpdateAssetData
+  data: UpdateAssetData,
+  changedBy?: string
 ) => {
   validateObjectId(id, "asset ID");
 
@@ -130,11 +155,68 @@ export const updateAsset = async (
     "organization ID"
   );
 
-  return assetRepository.updateByIdAndOrganization(
+  const existing = await assetRepository.findOne({
+    _id: id,
+    organizationId,
+  });
+
+  if (!existing) {
+    return null;
+  }
+
+  if (data.status && data.status !== existing.status) {
+    if (!lifecycleTransitions[existing.status].includes(data.status)) {
+      throw new Error(
+        `Invalid asset lifecycle transition: ${existing.status} to ${data.status}`
+      );
+    }
+  }
+
+  if (data.status === "Assigned" && !existing.assignedTo) {
+    throw new Error(
+      "An asset must be assigned through the assignment operation"
+    );
+  }
+
+  if (data.status === "Available" && existing.assignedTo) {
+    throw new Error(
+      "An assigned asset must be unassigned before it becomes available"
+    );
+  }
+
+  if (
+    (data.status === "Maintenance" || data.status === "Retired") &&
+    existing.assignedTo
+  ) {
+    throw new Error(
+      "An assigned asset must be unassigned before entering this lifecycle state"
+    );
+  }
+
+  if (data.warrantyStartDate && data.warrantyEndDate &&
+      new Date(data.warrantyEndDate) < new Date(data.warrantyStartDate)) {
+    throw new Error("Warranty end date must be on or after the start date");
+  }
+
+  const updated = await assetRepository.updateByIdAndOrganization(
     id,
     organizationId,
     data
   );
+
+  if (updated && data.status && data.status !== existing.status) {
+    await assetLifecycleRepository.create({
+      assetId: existing._id,
+      organizationId: existing.organizationId,
+      previousStatus: existing.status,
+      newStatus: data.status,
+      changedBy: changedBy && mongoose.Types.ObjectId.isValid(changedBy)
+        ? new mongoose.Types.ObjectId(changedBy)
+        : undefined,
+    });
+  }
+
+  return updated;
 };
 
 // ==========================================
@@ -165,7 +247,8 @@ export const deleteAsset = async (
 export const assignAsset = async (
   assetId: string,
   employeeId: string,
-  organizationId: string
+  organizationId: string,
+  changedBy?: string
 ) => {
   validateObjectId(assetId, "asset ID");
 
@@ -221,10 +304,24 @@ export const assignAsset = async (
   // Assign asset through repository
   // ------------------------------------------
 
-  return assetRepository.assign(
+  const assigned = await assetRepository.assign(
     asset._id.toString(),
     employee._id.toString()
   );
+
+  if (assigned) {
+    await assetLifecycleRepository.create({
+      assetId: asset._id,
+      organizationId: asset.organizationId,
+      previousStatus: asset.status,
+      newStatus: "Assigned",
+      changedBy: changedBy && mongoose.Types.ObjectId.isValid(changedBy)
+        ? new mongoose.Types.ObjectId(changedBy)
+        : undefined,
+    });
+  }
+
+  return assigned;
 };
 
 // ==========================================
@@ -233,7 +330,8 @@ export const assignAsset = async (
 
 export const unassignAsset = async (
   assetId: string,
-  organizationId: string
+  organizationId: string,
+  changedBy?: string
 ) => {
   validateObjectId(assetId, "asset ID");
 
@@ -269,7 +367,139 @@ export const unassignAsset = async (
   // Unassign asset through repository
   // ------------------------------------------
 
-  return assetRepository.unassign(
+  const unassigned = await assetRepository.unassign(
     asset._id.toString()
+  );
+
+  if (unassigned) {
+    await assetLifecycleRepository.create({
+      assetId: asset._id,
+      organizationId: asset.organizationId,
+      previousStatus: asset.status,
+      newStatus: "Available",
+      changedBy: changedBy && mongoose.Types.ObjectId.isValid(changedBy)
+        ? new mongoose.Types.ObjectId(changedBy)
+        : undefined,
+    });
+  }
+
+  return unassigned;
+};
+
+export const getWarrantyStatus = (
+  asset: {
+    warrantyStartDate?: Date;
+    warrantyEndDate?: Date;
+  }
+): "Active" | "Expired" | "Not Covered" | "Not Started" => {
+  if (!asset.warrantyEndDate) {
+    return "Not Covered";
+  }
+
+  if (
+    asset.warrantyStartDate &&
+    new Date(asset.warrantyStartDate) > new Date()
+  ) {
+    return "Not Started";
+  }
+
+  return new Date(asset.warrantyEndDate) >= new Date()
+    ? "Active"
+    : "Expired";
+};
+
+export const createMaintenanceRecord = async (
+  assetId: string,
+  organizationId: string,
+  data: {
+    date: Date;
+    type: AssetMaintenanceType;
+    description: string;
+    cost?: number;
+    status?: AssetMaintenanceStatus;
+    createdBy: string;
+  }
+) => {
+  validateObjectId(assetId, "asset ID");
+  validateObjectId(organizationId, "organization ID");
+  validateObjectId(data.createdBy, "createdBy ID");
+
+  const asset = await assetRepository.findOne({
+    _id: assetId,
+    organizationId,
+  });
+  if (!asset) {
+    throw new Error("Asset not found");
+  }
+
+  const creator = await AuthUser.findOne({
+    _id: data.createdBy,
+    organizationId,
+    isActive: true,
+  });
+  if (!creator) {
+    throw new Error("Maintenance creator not found in this organization");
+  }
+
+  if (!data.description?.trim()) {
+    throw new Error("Maintenance description is required");
+  }
+
+  const parsedDate = new Date(data.date);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error("Invalid maintenance date");
+  }
+
+  return assetMaintenanceRepository.create({
+    assetId: asset._id,
+    organizationId: asset.organizationId,
+    date: parsedDate,
+    type: data.type,
+    description: data.description.trim(),
+    cost: data.cost,
+    status: data.status,
+    createdBy: creator._id,
+  });
+};
+
+export const getMaintenanceHistory = async (
+  assetId: string,
+  organizationId: string
+) => {
+  validateObjectId(assetId, "asset ID");
+  validateObjectId(organizationId, "organization ID");
+
+  const asset = await assetRepository.findOne({
+    _id: assetId,
+    organizationId,
+  });
+  if (!asset) {
+    throw new Error("Asset not found");
+  }
+
+  return assetMaintenanceRepository.findByAssetAndOrganization(
+    assetId,
+    organizationId
+  );
+};
+
+export const getLifecycleHistory = async (
+  assetId: string,
+  organizationId: string
+) => {
+  validateObjectId(assetId, "asset ID");
+  validateObjectId(organizationId, "organization ID");
+
+  const asset = await assetRepository.findOne({
+    _id: assetId,
+    organizationId,
+  });
+  if (!asset) {
+    throw new Error("Asset not found");
+  }
+
+  return assetLifecycleRepository.findByAssetAndOrganization(
+    assetId,
+    organizationId
   );
 };

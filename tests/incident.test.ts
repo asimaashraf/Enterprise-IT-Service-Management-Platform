@@ -11,6 +11,7 @@ import { connectDB } from "../src/config/db";
 describe("Incident Management API", () => {
   let adminToken: string;
   let employeeToken: string;
+  let employeeId: string;
 
   let createdIncidentId: string;
   let createdIncidentNumber: string;
@@ -69,6 +70,7 @@ describe("Incident Management API", () => {
     expect(employeeLogin.body.data.token).toBeDefined();
 
     employeeToken = employeeLogin.body.data.token;
+    employeeId = employeeLogin.body.data.user.id;
 
     console.log(
       "BOTH USERS LOGGED IN SUCCESSFULLY"
@@ -392,7 +394,7 @@ describe("Incident Management API", () => {
       )
       .send({
         assignedTo:
-          "6a855db2efe3dd908daacfdb",
+          employeeId,
       });
 
     expect(response.status).toBe(403);
@@ -440,7 +442,7 @@ describe("Incident Management API", () => {
       )
       .send({
         assignedTo:
-          "6a855db2efe3dd908daacfdb",
+          employeeId,
       });
 
     console.log(

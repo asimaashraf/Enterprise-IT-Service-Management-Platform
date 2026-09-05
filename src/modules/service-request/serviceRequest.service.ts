@@ -7,6 +7,7 @@ import ServiceRequest, {
 } from "./serviceRequest.model";
 
 import AuthUser from "../auth/auth.model";
+import { queueNotificationEvent } from "../notification/notification.service";
 
 // ==========================================
 // TYPES
@@ -322,7 +323,7 @@ export const updateServiceRequest = async (
   // UPDATE DATABASE
   // ==========================================
 
-  return ServiceRequest.findOneAndUpdate(
+  const updatedRequest = await ServiceRequest.findOneAndUpdate(
     {
       _id: id,
       organizationId,
@@ -345,6 +346,32 @@ export const updateServiceRequest = async (
       "approvedBy",
       "name email role"
     );
+
+  if (
+    updatedRequest &&
+    (requestedStatus || data.assignedTo)
+  ) {
+    const requestedBy = existingRequest.requestedBy as any;
+    const assignedTo = updatedRequest.assignedTo as any;
+    const recipients = [
+      requestedBy?._id?.toString() || requestedBy?.toString(),
+      assignedTo?._id?.toString() || assignedTo?.toString(),
+    ].filter((recipient): recipient is string => Boolean(recipient));
+
+    await queueNotificationEvent({
+      eventKey: `service-request-updated-${updatedRequest._id.toString()}-${requestedStatus || "assigned"}`,
+      recipients,
+      organizationId,
+      title: "Service Request Updated",
+      message: `Service request ${updatedRequest.requestId} has been updated${requestedStatus ? ` to ${requestedStatus}` : ""}.`,
+      type: "Service Request Updated",
+      entityType: "ServiceRequest",
+      entityId: updatedRequest._id.toString(),
+      priority: updatedRequest.priority,
+    });
+  }
+
+  return updatedRequest;
 };
 
 // ==========================================

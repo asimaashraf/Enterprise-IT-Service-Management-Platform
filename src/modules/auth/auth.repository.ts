@@ -1,6 +1,10 @@
 import AuthUser, { IAuthUser } from "./auth.model";
 
 export const authRepository = {
+  countUsers: async (): Promise<number> => {
+    return AuthUser.countDocuments({});
+  },
+
   // ==========================================
   // FIND ONE
   // ==========================================
@@ -89,6 +93,16 @@ export const authRepository = {
     }).select(
       "_id name email role"
     );
+  },
+
+  findActiveAdminsByOrganization: async (
+    organizationId: string
+  ): Promise<IAuthUser[]> => {
+    return AuthUser.find({
+      organizationId,
+      role: "admin",
+      isActive: true,
+    }).select("_id name email role");
   },
 
   // ==========================================

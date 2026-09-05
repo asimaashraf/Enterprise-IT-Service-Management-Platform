@@ -5,6 +5,8 @@ import redis from "./config/redis";
 
 import notificationWorker from "./workers/notification.worker";
 import emailWorker from "./workers/email.worker";
+import slaWorker from "./workers/sla.worker";
+import { scheduleSLAScan } from "./jobs/queues/sla.queue";
 
 // ==========================================
 // LOAD ENVIRONMENT VARIABLES
@@ -90,6 +92,12 @@ const startWorkers = async (): Promise<void> => {
       `Email worker started: ${emailWorker.name}`
     );
 
+    await scheduleSLAScan();
+
+    console.log(
+      "SLA breach scheduler started"
+    );
+
     // ========================================
     // WORKERS READY
     // ========================================
@@ -161,6 +169,12 @@ const shutdown = async (
 
     console.log(
       "Email worker closed"
+    );
+
+    await slaWorker.close();
+
+    console.log(
+      "SLA worker closed"
     );
 
     // ========================================

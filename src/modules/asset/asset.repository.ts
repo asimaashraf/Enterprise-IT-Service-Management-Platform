@@ -50,7 +50,7 @@ export const assetRepository = {
   ): Promise<IAsset[]> => {
     return Asset.find({
       organizationId,
-    }).select("status");
+    }).select("_id status warrantyEndDate");
   },
 
   // ==========================================

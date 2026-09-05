@@ -1,5 +1,6 @@
 import request from "supertest";
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
 import app from "../src/app";
 import { connectDB } from "../src/config/db";
@@ -9,6 +10,7 @@ import Organization from "../src/modules/organization/organization.model";
 import Problem from "../src/modules/problem/problem.model";
 import Incident from "../src/modules/incident/incident.model";
 import RCA from "../src/modules/rca/rca.model";
+import RCACorrectiveAction from "../src/modules/rca/rcaCorrectiveAction.model";
 jest.setTimeout(60000);
 
 describe("RCA Corrective Actions Integration Tests", () => {
@@ -46,28 +48,20 @@ describe("RCA Corrective Actions Integration Tests", () => {
     console.log("Organization:", organizationId);
 
     // ==========================================
-    // CREATE ADMIN THROUGH REGISTER API
+    // CREATE ADMIN DIRECTLY; public registration always creates employees
     // ==========================================
 
     const adminEmail = `rca.admin.${Date.now()}@example.com`;
 
-    const adminRegister = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "RCA Admin",
-        email: adminEmail,
-        password: "Password123!",
-        role: "admin",
-        organizationId,
-      });
+    const admin = await AuthUser.create({
+      name: "RCA Admin",
+      email: adminEmail,
+      password: await bcrypt.hash("Password123!", 10),
+      role: "admin",
+      organizationId,
+    });
 
-    console.log("ADMIN REGISTER STATUS:", adminRegister.status);
-    console.log("ADMIN REGISTER RESPONSE:", adminRegister.body);
-
-    expect(adminRegister.status).toBe(201);
-    expect(adminRegister.body.success).toBe(true);
-
-    adminId = adminRegister.body.data.user.id;
+    adminId = admin._id.toString();
 
     // ==========================================
     // CREATE EMPLOYEE THROUGH REGISTER API
@@ -297,7 +291,7 @@ describe("RCA Corrective Actions Integration Tests", () => {
   // EMPLOYEE UPDATE
   // ==========================================
 
-  test("should allow authenticated employee to update corrective actions", async () => {
+  test("should block employees from updating RCA corrective actions", async () => {
     const response = await request(app)
       .put(`/api/v1/rcas/${rcaId}`)
       .set("Authorization", `Bearer ${employeeToken}`)
@@ -312,12 +306,47 @@ describe("RCA Corrective Actions Integration Tests", () => {
 
     console.log("EMPLOYEE UPDATE RESPONSE:", response.body);
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+  });
 
-    expect(
-      response.body.data.correctiveActions
-    ).toHaveLength(4);
+  test("should allow an admin to create and update a corrective action", async () => {
+    const createResponse = await request(app)
+      .post(`/api/v1/rcas/${rcaId}/corrective-actions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Replace network switch",
+        description: "Replace the failed switch",
+        assignedTo: employeeId,
+        dueDate: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(createResponse.status).toBe(201);
+    const actionId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .put(`/api/v1/rcas/${rcaId}/corrective-actions/${actionId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Replace failed network switch" });
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.success).toBe(true);
+  });
+
+  test("should block employees from mutating corrective actions", async () => {
+    const action = await RCACorrectiveAction.findOne({
+      rca: rcaId,
+      organizationId,
+    });
+
+    expect(action).toBeDefined();
+
+    const response = await request(app)
+      .delete(`/api/v1/rcas/${rcaId}/corrective-actions/${action!._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
   });
 
   // ==========================================
@@ -447,7 +476,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
       "Replace the faulty network switch",
       "Verify network configuration",
       "Test all affected network ports",
-      "Document the replacement",
     ]);
   });
 

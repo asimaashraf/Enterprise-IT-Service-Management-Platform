@@ -1,5 +1,8 @@
 import request from "supertest";
 import app from "../src/app";
+import AuthUser from "../src/modules/auth/auth.model";
+import Organization from "../src/modules/organization/organization.model";
+import SupportTeam from "../src/modules/support-team/supportTeam.model";
 import {
   connectDB,
   disconnectDB,
@@ -25,6 +28,9 @@ let employeeId = "";
 
 let policyId = "";
 let supportTeamId = "";
+let otherOrganizationId = "";
+let otherUserId = "";
+let otherSupportTeamId = "";
 
 // ==========================================
 // HELPERS
@@ -236,6 +242,36 @@ describe("Incident Escalation Integration Tests", () => {
       supportTeamId
     ).toBeDefined();
 
+    const otherOrganization = await Organization.create({
+      name: uniqueName("Other Escalation Organization"),
+      slug: uniqueName("other-escalation-organization")
+        .toLowerCase()
+        .replace(/ /g, "-"),
+      isActive: true,
+    });
+
+    otherOrganizationId = otherOrganization._id.toString();
+
+    const otherUser = await AuthUser.create({
+      name: "Other Organization User",
+      email: `other.escalation.${Date.now()}@example.com`,
+      password: "Password123!",
+      role: "employee",
+      organizationId: otherOrganization._id,
+      isActive: true,
+    });
+
+    otherUserId = otherUser._id.toString();
+
+    const otherTeam = await SupportTeam.create({
+      name: uniqueName("Other Escalation Team"),
+      organizationId: otherOrganization._id,
+      members: [],
+      isActive: true,
+    });
+
+    otherSupportTeamId = otherTeam._id.toString();
+
     console.log(
       "Support team created:",
       supportTeamId
@@ -264,6 +300,13 @@ describe("Incident Escalation Integration Tests", () => {
     );
 
     try {
+      await SupportTeam.deleteMany({
+        _id: {
+          $in: [supportTeamId, otherSupportTeamId],
+        },
+      });
+      await AuthUser.deleteOne({ _id: otherUserId });
+      await Organization.deleteOne({ _id: otherOrganizationId });
       await disconnectDB();
 
       console.log(
@@ -413,6 +456,109 @@ describe("Incident Escalation Integration Tests", () => {
       ).toContain("targetUser");
     }
   );
+
+  it("should accept a same-tenant User target", async () => {
+    const response = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Same Tenant User Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "User",
+        targetUser: employeeId,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+  });
+
+  it("should reject a cross-tenant User target", async () => {
+    const response = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Cross Tenant User Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "User",
+        targetUser: otherUserId,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it("should reject missing and invalid User targets", async () => {
+    const missingResponse = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Missing User Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "User",
+      });
+
+    const invalidResponse = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Invalid User Target ID"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "User",
+        targetUser: "invalid-user-id",
+      });
+
+    expect(missingResponse.status).toBe(400);
+    expect(invalidResponse.status).toBe(400);
+  });
+
+  it("should reject cross-tenant and missing or invalid SupportTeam targets", async () => {
+    const crossTenantResponse = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Cross Tenant Team Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "SupportTeam",
+        targetTeam: otherSupportTeamId,
+      });
+
+    const missingResponse = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Missing Team Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "SupportTeam",
+      });
+
+    const invalidResponse = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Invalid Team Target ID"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "SupportTeam",
+        targetTeam: "invalid-team-id",
+      });
+
+    expect(crossTenantResponse.status).toBe(400);
+    expect(missingResponse.status).toBe(400);
+    expect(invalidResponse.status).toBe(400);
+  });
 
   // ==========================================
   // 4. INVALID SUPPORT TEAM TARGET
