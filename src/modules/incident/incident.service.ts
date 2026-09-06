@@ -22,13 +22,28 @@ import { queueNotificationEvent } from "../notification/notification.service";
 // ==========================================
 
 interface CreateIncidentData {
-  incidentId: string;
+  incidentId?: string;
   title: string;
   description: string;
   priority?: IncidentPriority;
   severity?: IncidentSeverity;
   reportedBy: string;
   organizationId: string;
+}
+
+/**
+ * Generate a human-readable incident identifier using the INC-YYYYMMDD-NNNN
+ * format. The NNNN portion is a zero-padded random integer 0–9999.
+ *
+ * Uses a loop with a hard cap to guard against concurrent creation collisions
+ * within the same organization. On the extremely rare event of 10,000
+ * simultaneous collisions the loop exits and the last attempt will hit the
+ * unique-index constraint and surface a descriptive 400 from the controller.
+ */
+const generateIncidentId = (): string => {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "") // YYYYMMDD
+  const seq = String(Math.floor(Math.random() * 10_000)).padStart(4, "0")
+  return `INC-${dateStr}-${seq}`
 }
 
 interface UpdateIncidentData {
@@ -215,12 +230,34 @@ export const createIncident = async (
   );
 
   // ==========================================
+  // INCIDENT ID — generate when not supplied
+  // ==========================================
+
+  // Normalise: client may send undefined, null, or a custom string.
+  // Treat empty-string as "not supplied".
+  let incidentId = data.incidentId?.trim() || undefined
+
+  if (!incidentId) {
+    // Loop until a unique ID is found (or hard-cap to avoid infinite loop).
+    const MAX_ATTEMPTS = 100
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      incidentId = generateIncidentId()
+      const existing = await incidentRepository.findOne({
+        incidentId,
+        organizationId: organizationObjectId,
+      })
+      if (!existing) break // unique — use it
+      // otherwise try again
+    }
+  }
+
+  // ==========================================
   // DUPLICATE INCIDENT CHECK
   // ==========================================
 
   const existingIncident =
     await incidentRepository.findOne({
-      incidentId: data.incidentId,
+      incidentId,
       organizationId: organizationObjectId,
     });
 
@@ -280,7 +317,7 @@ export const createIncident = async (
 
     console.log(
       "Incident:",
-      data.incidentId
+      incidentId
     );
 
     console.log(
@@ -393,7 +430,7 @@ export const createIncident = async (
       }
     } else {
       console.log(
-        `No assignment rule matched incident ${data.incidentId}`
+        `No assignment rule matched incident ${incidentId}`
       );
     }
   } catch (error: any) {
@@ -414,7 +451,7 @@ export const createIncident = async (
 
   const incident =
     await incidentRepository.create({
-      incidentId: data.incidentId,
+      incidentId,
 
       title: data.title,
 

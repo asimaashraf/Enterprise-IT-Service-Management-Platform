@@ -19,6 +19,8 @@ import { RoleGuard } from '@/components/auth/RoleGuard'
 import { AppBootstrap } from '@/components/auth/AppBootstrap'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { IncidentsPage } from '@/pages/IncidentsPage'
+import { IncidentDetailPage } from '@/pages/IncidentDetailPage'
+import { IncidentEditPage } from '@/pages/IncidentEditPage'
 import { ServiceRequestsPage } from '@/pages/ServiceRequestsPage'
 import { ChangesPage } from '@/pages/ChangesPage'
 import { SLAPage } from '@/pages/SLAPage'
@@ -100,6 +102,8 @@ if (!rootElement.innerHTML) {
                   >
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/incidents" element={<IncidentsPage />} />
+                    <Route path="/incidents/:id" element={<IncidentDetailPage />} />
+                    <Route path="/incidents/:id/edit" element={<IncidentEditPage />} />
                     <Route
                       path="/service-requests"
                       element={<ServiceRequestsPage />}

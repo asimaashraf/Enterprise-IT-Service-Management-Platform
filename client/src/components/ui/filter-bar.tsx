@@ -34,7 +34,7 @@ export interface FilterBarProps {
   /** Definition of available filters */
   fields: FilterField[]
   /** Current filter values, keyed by field key */
-  values: Record<string, string>
+  values: { [key: string]: string }
   /** Called when a filter value changes */
   onChange: (key: string, value: string) => void
   /** Called when the user clicks the reset button */

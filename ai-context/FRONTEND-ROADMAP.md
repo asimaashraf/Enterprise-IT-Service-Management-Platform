@@ -287,35 +287,35 @@ Incident Management will serve as the reference/template architecture for the mo
 
 ## Tasks
 
-- [ ] Create `incidentApi.ts`
-- [ ] Create React Query hooks for:
+- [x] Create `incidentApi.ts`
+- [x] Create React Query hooks for:
   - List incidents
   - Get incident
   - Create incident
   - Update incident
   - Delete incident
-  - Assign incident
-  - Escalate incident
-- [ ] Build Incident List page
-- [ ] Use reusable `DataTable`
-- [ ] Use reusable `FilterBar`
-- [ ] Add filters for:
+  - Assign incident (via update)
+  - Escalate incident (via update)
+- [x] Build Incident List page
+- [x] Use reusable `DataTable`
+- [x] Use reusable `FilterBar`
+- [x] Add filters for:
   - Status
   - Priority
   - Severity
-- [ ] Build Incident Create form
-- [ ] Build Incident Edit form
-- [ ] Create Zod validation matching backend validation rules
-- [ ] Build Incident Detail page
-- [ ] Display:
+- [x] Build Incident Create form
+- [x] Build Incident Edit form
+- [x] Create Zod validation matching backend validation rules
+- [x] Build Incident Detail page
+- [x] Display:
   - Status
   - Priority
   - Severity
   - Assignment
   - Escalation
   - Resolution tracking
-- [ ] Add PDF export action
-- [ ] Apply role-based UI controls for employee and admin actions
+- [x] Add PDF export action
+- [x] Apply role-based UI controls for employee and admin actions
 
 ## Exit Criteria
 

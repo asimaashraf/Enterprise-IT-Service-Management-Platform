@@ -43,6 +43,7 @@ export const authenticate = (
 
     const decoded = jwt.verify(token, secret) as {
       id: string;
+      name: string;
       email: string;
       role: "admin" | "employee";
       organizationId: string;
