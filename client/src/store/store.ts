@@ -1,22 +1,19 @@
 import { configureStore } from '@reduxjs/toolkit'
 
-// Root reducer - add slices here as Phase 1 modules are implemented
-const rootReducer = {
-  // auth: authSlice,
-}
+import authReducer from './authSlice'
 
-// Configure the Redux store with TypeScript support
 export const store = configureStore({
-  reducer: rootReducer,
+  reducer: {
+    auth: authReducer,
+  },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['auth/setCredentials'],
+        ignoredActions: ['auth/login/fulfilled', 'auth/register/fulfilled'],
       },
     }),
   devTools: import.meta.env.DEV,
 })
 
-// Infer types for use throughout the app
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch

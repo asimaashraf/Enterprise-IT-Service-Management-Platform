@@ -7,6 +7,13 @@ export interface IAuthUser extends Document {
   role: "admin" | "employee";
   organizationId: mongoose.Types.ObjectId;
   isActive: boolean;
+  isEmailVerified: boolean;
+  // Email verification (hash-only storage; never plaintext).
+  emailVerificationTokenHash: string | null;
+  emailVerificationExpiresAt: Date | null;
+  // Password reset (hash-only storage; never plaintext).
+  passwordResetTokenHash: string | null;
+  passwordResetExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +55,44 @@ const authUserSchema = new Schema<IAuthUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    // Email verification.
+    // Default behaviour:
+    //  - Public registrations: created as `isEmailVerified: false` and the
+    //    account is required to verify before the next login.
+    //  - Bootstrapped admin: created as `isEmailVerified: true` so the
+    //    initial admin can log in immediately without SMTP setup. This
+    //    matches the documented behaviour that bootstrap is an offline,
+    //    operator-driven action gated by `BOOTSTRAP_TOKEN`.
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    emailVerificationTokenHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
+    // Password reset.
+    passwordResetTokenHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
     },
   },
   {

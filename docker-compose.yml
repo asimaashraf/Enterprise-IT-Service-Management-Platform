@@ -3,10 +3,16 @@ services:
     image: mongo:7
     container_name: itsm-mongodb
     restart: unless-stopped
+
     expose:
       - "27017"
+
+    ports:
+      - "127.0.0.1:27018:27017"
+
     volumes:
       - mongodb_data:/data/db
+
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1"]
       interval: 10s
@@ -45,6 +51,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set for the API}
       BOOTSTRAP_TOKEN: ${BOOTSTRAP_TOKEN:?BOOTSTRAP_TOKEN must be set for the API}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -69,6 +81,13 @@ services:
       MONGO_URI: mongodb://mongodb:27017/itsm-platform
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set for the worker}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
     depends_on:
       mongodb:
         condition: service_healthy

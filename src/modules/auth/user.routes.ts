@@ -6,6 +6,9 @@ import {
   getUserController,
   updateUserController,
   deactivateUserController,
+  activateUserController,
+  blockUserController,
+  changeUserRoleController,
 } from "./user.controller";
 
 import {
@@ -16,10 +19,13 @@ import {
 const router = Router();
 
 // ==========================================
-// USER MANAGEMENT ROUTES
+// USER MANAGEMENT ROUTES (Admin only)
+//
+// All routes are tenant-scoped: the organizationId is taken from the
+// authenticated admin's JWT. The browser cannot influence it.
 // ==========================================
 
-// CREATE USER — Admin only
+// CREATE USER — Admin only (legacy direct-create; prefer invitations)
 router.post(
   "/",
   authenticate,
@@ -51,12 +57,36 @@ router.put(
   updateUserController
 );
 
+// CHANGE USER ROLE — Admin only
+router.patch(
+  "/:id/role",
+  authenticate,
+  authorize("admin"),
+  changeUserRoleController
+);
+
+// ACTIVATE USER — Admin only
+router.patch(
+  "/:id/activate",
+  authenticate,
+  authorize("admin"),
+  activateUserController
+);
+
 // DEACTIVATE USER — Admin only
 router.patch(
   "/:id/deactivate",
   authenticate,
   authorize("admin"),
   deactivateUserController
+);
+
+// BLOCK USER (soft-delete) — Admin only
+router.patch(
+  "/:id/block",
+  authenticate,
+  authorize("admin"),
+  blockUserController
 );
 
 export default router;

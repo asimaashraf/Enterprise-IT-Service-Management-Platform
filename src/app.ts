@@ -8,6 +8,7 @@ import cors from "cors";
 import authRoutes from "./modules/auth/auth.routes";
 import organizationRoutes from "./modules/organization/organization.routes";
 import userRoutes from "./modules/auth/user.routes";
+import invitationRoutes from "./modules/invitation/invitation.routes";
 import assetRoutes from "./modules/asset/asset.routes";
 import incidentRoutes from "./modules/incident/incident.routes";
 import slaRoutes from "./modules/sla/sla.routes";
@@ -61,16 +62,15 @@ app.use(express.json());
 app.use(auditMutations);
 
 // ==========================================
-// REQUEST LOGGER
+// REQUEST LOGGER (development only)
 // ==========================================
 
-app.use((req, _res, next) => {
-  console.log(
-    `🔥 REQUEST: ${req.method} ${req.originalUrl}`
-  );
-
-  next();
-});
+if (process.env.NODE_ENV !== "test") {
+  app.use((req, _res, next) => {
+    console.log(`${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
 
 // ==========================================
 // HEALTH CHECK
@@ -108,6 +108,15 @@ app.use(
 app.use(
   "/api/v1/users",
   userRoutes
+);
+
+// ==========================================
+// INVITATIONS
+// ==========================================
+
+app.use(
+  "/api/v1/invitations",
+  invitationRoutes
 );
 
 // ==========================================

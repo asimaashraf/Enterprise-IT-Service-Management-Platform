@@ -6,13 +6,27 @@ export const authRepository = {
   },
 
   // ==========================================
-  // FIND ONE
+  // FIND ONE (standard — excludes select:false fields)
   // ==========================================
 
   findOne: async (
     filter: Record<string, any>
   ): Promise<IAuthUser | null> => {
     return AuthUser.findOne(filter);
+  },
+
+  // ==========================================
+  // FIND ONE WITH VERIFICATION / RESET TOKEN FIELDS
+  // Must explicitly select select:false fields.
+  // ==========================================
+
+  findOneWithTokens: async (
+    filter: Record<string, any>
+  ): Promise<IAuthUser | null> => {
+    return AuthUser.findOne(filter).select(
+      "+emailVerificationTokenHash +emailVerificationExpiresAt" +
+        " +passwordResetTokenHash +passwordResetExpiresAt"
+    );
   },
 
   // ==========================================
@@ -197,5 +211,166 @@ export const authRepository = {
         returnDocument: "after",
       }
     ).select("-password");
+  },
+
+  // ==========================================
+  // ACTIVATE USER
+  // ==========================================
+
+  activateByIdAndOrganization: async (
+    id: string,
+    organizationId: string
+  ): Promise<IAuthUser | null> => {
+    return AuthUser.findOneAndUpdate(
+      {
+        _id: id,
+        organizationId,
+      },
+      {
+        isActive: true,
+      },
+      {
+        returnDocument: "after",
+      }
+    ).select("-password");
+  },
+
+  // ==========================================
+  // BLOCK USER (soft-delete)
+  // Used by admins to remove a user's access while preserving all
+  // historical ITSM records (incidents, requests, approvals, audit).
+  // ==========================================
+
+  blockByIdAndOrganization: async (
+    id: string,
+    organizationId: string
+  ): Promise<IAuthUser | null> => {
+    return AuthUser.findOneAndUpdate(
+      {
+        _id: id,
+        organizationId,
+      },
+      {
+        // Blocked users are inactive and their email is suffixed with a
+        // tombstone marker so the same address can never be re-registered.
+        // The raw email is preserved in the document for audit/display.
+        isActive: false,
+      },
+      {
+        returnDocument: "after",
+      }
+    ).select("-password");
+  },
+
+  // ==========================================
+  // CHANGE USER ROLE
+  // ==========================================
+
+  updateRoleByIdAndOrganization: async (
+    id: string,
+    organizationId: string,
+    role: "admin" | "employee"
+  ): Promise<IAuthUser | null> => {
+    return AuthUser.findOneAndUpdate(
+      {
+        _id: id,
+        organizationId,
+      },
+      {
+        role,
+      },
+      {
+        returnDocument: "after",
+      }
+    ).select("-password");
+  },
+
+  // ==========================================
+  // COUNT ACTIVE ADMINS BY ORGANIZATION
+  // Used to prevent the last admin from demoting/deactivating themselves.
+  // ==========================================
+
+  countActiveAdminsByOrganization: async (
+    organizationId: string
+  ): Promise<number> => {
+    return AuthUser.countDocuments({
+      organizationId,
+      role: "admin",
+      isActive: true,
+    });
+  },
+
+  // ==========================================
+  // MARK EMAIL VERIFIED
+  // ==========================================
+
+  markEmailVerified: async (id: string): Promise<IAuthUser | null> => {
+    return AuthUser.findByIdAndUpdate(
+      id,
+      {
+        isEmailVerified: true,
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+      },
+      { returnDocument: "after" }
+    );
+  },
+
+  // ==========================================
+  // SET VERIFICATION TOKEN
+  // Sets the hash + expiry on a user record (e.g. on registration or resend).
+  // ==========================================
+
+  setVerificationToken: async (
+    id: string,
+    tokenHash: string,
+    expiresAt: Date
+  ): Promise<void> => {
+    await AuthUser.findByIdAndUpdate(id, {
+      emailVerificationTokenHash: tokenHash,
+      emailVerificationExpiresAt: expiresAt,
+    });
+  },
+
+  // ==========================================
+  // SET RESET TOKEN
+  // Sets the hash + expiry on a user record (e.g. on forgot-password).
+  // ==========================================
+
+  setResetToken: async (
+    id: string,
+    tokenHash: string,
+    expiresAt: Date
+  ): Promise<void> => {
+    await AuthUser.findByIdAndUpdate(id, {
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: expiresAt,
+    });
+  },
+
+  // ==========================================
+  // CLEAR RESET TOKEN
+  // Clears the reset token after a successful password change.
+  // ==========================================
+
+  clearResetToken: async (id: string): Promise<void> => {
+    await AuthUser.findByIdAndUpdate(id, {
+      passwordResetTokenHash: null,
+      passwordResetExpiresAt: null,
+    });
+  },
+
+  // ==========================================
+  // SET PASSWORD
+  // Updates the password hash for a given user.
+  // ==========================================
+
+  setPassword: async (
+    id: string,
+    hashedPassword: string
+  ): Promise<void> => {
+    await AuthUser.findByIdAndUpdate(id, {
+      password: hashedPassword,
+    });
   },
 };

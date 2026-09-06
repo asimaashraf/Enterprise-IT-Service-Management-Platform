@@ -7,13 +7,21 @@ import {
   BookOpen,
   BarChart3,
   Settings,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
+
+import type { UserRole } from '@/types/auth'
 
 export interface NavItem {
   label: string
   to: string
   icon: LucideIcon
+  /**
+   * When present, the item is only shown to users with one of the
+   * listed roles. The backend still enforces the actual authorization.
+   */
+  visibleTo?: UserRole[]
 }
 
 export interface NavGroup {
@@ -50,6 +58,32 @@ export const navGroups: NavGroup[] = [
   },
   {
     label: 'Administration',
-    items: [{ label: 'Settings', to: '/settings', icon: Settings }],
+    items: [
+      {
+        label: 'User Management',
+        to: '/users',
+        icon: Users,
+        visibleTo: ['admin'],
+      },
+      { label: 'Settings', to: '/settings', icon: Settings },
+    ],
   },
 ]
+
+/**
+ * Filters the nav groups down to the items the current user is allowed
+ * to see. Items with no `visibleTo` constraint are always shown.
+ */
+export function filterNavForRole(
+  groups: NavGroup[],
+  role: UserRole | undefined,
+): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.visibleTo || (role && item.visibleTo.includes(role)),
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
+}

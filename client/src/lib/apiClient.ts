@@ -1,7 +1,10 @@
-import axios from 'axios'
+import axios, { type AxiosError } from 'axios'
 
-// Create axios instance with the API base URL from environment variables
-const apiClient = axios.create({
+import { authStorage } from '@/lib/authStorage'
+import { clearAuth } from '@/store/authSlice'
+import { store } from '@/store/store'
+
+export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -10,30 +13,34 @@ const apiClient = axios.create({
   },
 })
 
-// Request interceptor to add auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error),
-)
+apiClient.interceptors.request.use((config) => {
+  const token = authStorage.getToken()
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`)
+  }
+  return config
+})
 
-// Response interceptor to handle common errors
+let isHandlingUnauthorized = false
+
 apiClient.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
+  undefined, // passthrough — callers unwrap the envelope
+  (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Session expired - could trigger auth reset here
-      // eslint-disable-next-line no-console
-      console.error('Session expired or unauthorized')
+      if (!isHandlingUnauthorized) {
+        isHandlingUnauthorized = true
+        try {
+          authStorage.clear()
+          store.dispatch(clearAuth())
+        } finally {
+          setTimeout(() => {
+            isHandlingUnauthorized = false
+          }, 0)
+        }
+      }
     }
     return Promise.reject(error)
   },
 )
 
 export default apiClient
-export { apiClient }

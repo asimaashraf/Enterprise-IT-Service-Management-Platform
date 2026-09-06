@@ -1,4 +1,7 @@
+import { useDispatch, useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
 import { LogOut, User, Settings as SettingsIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -10,29 +13,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { logoutThunk, type AppDispatch, type RootState } from '@/store'
 
-interface UserMenuProps {
-  // Placeholder — real user data will arrive in Phase 2
-  name?: string
-  email?: string
-  role?: string
-  onLogout?: () => void
-}
+export function UserMenu() {
+  const dispatch = useDispatch<AppDispatch>()
+  const navigate = useNavigate()
+  const user = useSelector((state: RootState) => state.auth.user)
 
-const initials = (name: string) =>
-  name
+  const name = user?.name ?? 'User'
+  const email = user?.email ?? ''
+
+  const initials = name
     .split(' ')
     .map((part) => part[0])
     .slice(0, 2)
     .join('')
     .toUpperCase()
 
-export function UserMenu({
-  name = 'Demo User',
-  email = 'demo@itsm.local',
-  role = 'Admin',
-  onLogout,
-}: UserMenuProps) {
+  const handleLogout = async () => {
+    dispatch(logoutThunk())
+    navigate('/login', { replace: true })
+    toast.success('You have been signed out')
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -43,7 +46,7 @@ export function UserMenu({
         >
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground">
-              {initials(name)}
+              {initials}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -53,9 +56,11 @@ export function UserMenu({
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{name}</p>
             <p className="text-xs leading-none text-muted-foreground">{email}</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-primary">
-              {role}
-            </p>
+            {user?.role && (
+              <p className="mt-1 text-xs font-medium uppercase tracking-wide text-primary">
+                {user.role}
+              </p>
+            )}
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -68,7 +73,7 @@ export function UserMenu({
           <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onLogout}>
+        <DropdownMenuItem onSelect={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

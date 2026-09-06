@@ -30,6 +30,7 @@ export const createTestUser = async ({
     role,
     organizationId,
     isActive: true,
+    isEmailVerified: true,
   });
 };
 
@@ -72,6 +73,7 @@ export const ensureTestFixtures = async (): Promise<void> => {
         role: "admin",
         organizationId: organization._id,
         isActive: true,
+        isEmailVerified: true,
       },
     },
     {
@@ -90,6 +92,7 @@ export const ensureTestFixtures = async (): Promise<void> => {
         role: "employee",
         organizationId: organization._id,
         isActive: true,
+        isEmailVerified: true,
       },
     },
     {
