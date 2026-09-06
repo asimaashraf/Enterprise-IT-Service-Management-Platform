@@ -33,6 +33,7 @@ import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage'
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
+import { ShowcasePage } from '@/pages/showcase/ShowcasePage'
 
 import '@/styles/index.css'
 
@@ -126,6 +127,11 @@ if (!rootElement.innerHTML) {
                     />
 
                     <Route path="/settings" element={<SettingsPage />} />
+                    {/*
+                     * Showcase — Phase 3 component library demonstration.
+                     * Visible to all authenticated users.
+                     */}
+                    <Route path="/showcase" element={<ShowcasePage />} />
                   </Route>
 
                   {/* Fallback */}

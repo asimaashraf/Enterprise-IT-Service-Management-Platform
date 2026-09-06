@@ -246,30 +246,30 @@ Build reusable components that will be shared across all ITSM modules.
 
 ## Tasks
 
-- [ ] Create reusable `DataTable`
-- [ ] Use TanStack Table with shadcn Table
-- [ ] Support:
+- [x] Create reusable `DataTable`
+- [x] Use TanStack Table with shadcn Table
+- [x] Support:
   - Sorting
   - Pagination
   - Loading state
   - Empty state
-- [ ] Create reusable form field wrappers for React Hook Form + Zod
-- [ ] Support shadcn Input and Select components
-- [ ] Create `StatusBadge`
-- [ ] Add status-based badge variants
-- [ ] Create `ConfirmDialog` using shadcn AlertDialog
-- [ ] Create `PageHeader`
-- [ ] Support:
+- [x] Create reusable form field wrappers for React Hook Form + Zod
+- [x] Support shadcn Input and Select components
+- [x] Create `StatusBadge`
+- [x] Add status-based badge variants
+- [x] Create `ConfirmDialog` using shadcn AlertDialog
+- [x] Create `PageHeader`
+- [x] Support:
   - Page title
   - Breadcrumb
   - Action button slot
-- [ ] Create generic/configurable `FilterBar`
-- [ ] Support:
+- [x] Create generic/configurable `FilterBar`
+- [x] Support:
   - Search input
   - Dropdown filters
-- [ ] Create `EmptyState`
-- [ ] Create `LoadingSpinner`
-- [ ] Create `ErrorState`
+- [x] Create `EmptyState`
+- [x] Create `LoadingSpinner`
+- [x] Create `ErrorState`
 
 ## Exit Criteria
 
