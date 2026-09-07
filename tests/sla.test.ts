@@ -157,6 +157,23 @@ describe("SLA Management API", () => {
   // CREATE SLA
   // ==========================================
 
+  it("should reject SLA creation by an employee", async () => {
+    const response = await request(app)
+      .post(`/api/v1/slas/incidents/${incidentId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({
+        businessHours: {
+          startTime: "08:00",
+          endTime: "16:00",
+          timezone: "UTC",
+          workingDays: [1, 2, 3, 4, 5],
+        },
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+  });
+
   it("should allow admin to create an SLA for an incident", async () => {
     expect(incidentId).toBeDefined();
 
@@ -360,7 +377,24 @@ describe("SLA Management API", () => {
   // RECORD RESPONSE
   // ==========================================
 
-  it("should record the SLA response", async () => {
+  it("should reject SLA state changes by an employee", async () => {
+    const endpoints = [
+      `/api/v1/slas/${slaId}/response`,
+      `/api/v1/slas/${slaId}/resolution`,
+      `/api/v1/slas/${slaId}/check-breach`,
+    ];
+
+    for (const endpoint of endpoints) {
+      const response = await request(app)
+        .patch(endpoint)
+        .set("Authorization", `Bearer ${employeeToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+    }
+  });
+
+  it("should allow an admin to record the SLA response", async () => {
     expect(slaId).toBeDefined();
 
     const response = await request(app)
@@ -369,7 +403,7 @@ describe("SLA Management API", () => {
       )
       .set(
         "Authorization",
-        `Bearer ${employeeToken}`
+        `Bearer ${adminToken}`
       );
 
     console.log(
@@ -408,7 +442,7 @@ describe("SLA Management API", () => {
       )
       .set(
         "Authorization",
-        `Bearer ${employeeToken}`
+        `Bearer ${adminToken}`
       );
 
     expect(response.status).toBe(200);

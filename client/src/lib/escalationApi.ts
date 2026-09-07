@@ -1,5 +1,11 @@
 import apiClient from '@/lib/apiClient'
-import type { EscalationPolicy, IncidentPriority, ApiEnvelope } from '@/types/incident'
+import type {
+  ApiEnvelope,
+  CreateEscalationPolicyPayload,
+  EscalationPolicy,
+  IncidentPriority,
+  UpdateEscalationPolicyPayload,
+} from '@/types/incident'
 
 const unwrap = <T>(response: { data: unknown }): T => {
   const envelope = response.data as ApiEnvelope<T>
@@ -31,5 +37,17 @@ export const escalationApi = {
       `/incident-escalation/applicable/${encodeURIComponent(priority)}`,
     )
     return unwrap<EscalationPolicy[]>(response)
+  },
+
+  async create(payload: CreateEscalationPolicyPayload): Promise<EscalationPolicy> {
+    return unwrap(await apiClient.post<ApiEnvelope<EscalationPolicy>>('/incident-escalation', payload))
+  },
+
+  async update(id: string, payload: UpdateEscalationPolicyPayload): Promise<EscalationPolicy> {
+    return unwrap(await apiClient.put<ApiEnvelope<EscalationPolicy>>(`/incident-escalation/${id}`, payload))
+  },
+
+  async remove(id: string): Promise<EscalationPolicy> {
+    return unwrap(await apiClient.delete<ApiEnvelope<EscalationPolicy>>(`/incident-escalation/${id}`))
   },
 }

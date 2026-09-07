@@ -31,6 +31,7 @@ import {
 } from '@/types/incident'
 import { downloadIncidentPdf, useIncident, useDeleteIncident } from '@/hooks/useIncidents'
 import { useApplicableEscalationPolicies } from '@/hooks/useEscalationPolicies'
+import { IncidentSLACard } from '@/components/incidents/incident-sla-card'
 import type { RootState } from '@/store/store'
 
 function formatDate(dateStr: string | undefined): string {
@@ -66,6 +67,7 @@ export function IncidentDetailPage() {
   // Escalation policies applicable to this incident's priority
   const { data: escalationPolicies = [] } = useApplicableEscalationPolicies(
     incident?.priority ?? 'Low',
+    isAdmin,
   )
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -184,12 +186,14 @@ export function IncidentDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <IncidentSLACard incidentId={incident._id} />
         </div>
 
         {/* Right column — metadata */}
         <div className="space-y-4">
           {/* Status card */}
-          <Card>
+          {isAdmin && <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Status</CardTitle>
             </CardHeader>
@@ -205,7 +209,7 @@ export function IncidentDetailPage() {
                 </p>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Classification */}
           <Card>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSelector } from 'react-redux'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,8 @@ import {
 } from '@/types/incident'
 import { useApplicableEscalationPolicies } from '@/hooks/useEscalationPolicies'
 import { downloadIncidentPdf } from '@/hooks/useIncidents'
+import { IncidentSLACard } from '@/components/incidents/incident-sla-card'
+import type { RootState } from '@/store'
 
 function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '—'
@@ -73,10 +76,12 @@ export function IncidentViewDialog({
   incident,
 }: IncidentViewDialogProps) {
   const [isExporting, setIsExporting] = useState(false)
+  const isAdmin = useSelector((state: RootState) => state.auth.user?.role === 'admin')
 
   // Fetch escalation policies for this incident's priority
   const { data: escalationPolicies = [] } = useApplicableEscalationPolicies(
     incident?.priority ?? 'Low',
+    isAdmin,
   )
 
   const handleExportPdf = async () => {
@@ -186,8 +191,10 @@ export function IncidentViewDialog({
             </Card>
           )}
 
+          <IncidentSLACard incidentId={incident._id} />
+
           {/* People */}
-          <Card>
+          {isAdmin && <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">People</CardTitle>
             </CardHeader>
@@ -203,7 +210,7 @@ export function IncidentViewDialog({
                 value={getUserDisplay(incident.assignedTo)}
               />
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Timeline */}
           <Card>

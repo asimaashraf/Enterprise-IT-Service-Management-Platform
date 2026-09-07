@@ -9,7 +9,10 @@ import {
   recordSLAResolutionController,
 } from "./sla.controller";
 
-import { authenticate } from "../../middleware/auth.middleware";
+import {
+  authenticate,
+  authorize,
+} from "../../middleware/auth.middleware";
 
 const router = Router();
 
@@ -20,6 +23,7 @@ const router = Router();
 router.post(
   "/incidents/:incidentId",
   authenticate,
+  authorize("admin"),
   createSLAController
 );
 
@@ -50,6 +54,7 @@ router.get(
 router.patch(
   "/:id/check-breach",
   authenticate,
+  authorize("admin"),
   checkSLABreachController
 );
 
@@ -60,6 +65,7 @@ router.patch(
 router.patch(
   "/:id/response",
   authenticate,
+  authorize("admin"),
   recordSLAResponseController
 );
 
@@ -70,6 +76,7 @@ router.patch(
 router.patch(
   "/:id/resolution",
   authenticate,
+  authorize("admin"),
   recordSLAResolutionController
 );
 

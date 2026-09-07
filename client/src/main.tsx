@@ -24,6 +24,7 @@ import { IncidentEditPage } from '@/pages/IncidentEditPage'
 import { ServiceRequestsPage } from '@/pages/ServiceRequestsPage'
 import { ChangesPage } from '@/pages/ChangesPage'
 import { SLAPage } from '@/pages/SLAPage'
+import { EscalationPoliciesPage } from '@/pages/EscalationPoliciesPage'
 import { AssetsPage } from '@/pages/AssetsPage'
 import { KnowledgeBasePage } from '@/pages/KnowledgeBasePage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
@@ -111,6 +112,7 @@ if (!rootElement.innerHTML) {
                     />
                     <Route path="/changes" element={<ChangesPage />} />
                     <Route path="/sla" element={<SLAPage />} />
+                    <Route path="/sla/escalations" element={<RoleGuard allowedRoles={['admin']}><EscalationPoliciesPage /></RoleGuard>} />
                     <Route path="/assets" element={<AssetsPage />} />
                     <Route
                       path="/knowledge-base"

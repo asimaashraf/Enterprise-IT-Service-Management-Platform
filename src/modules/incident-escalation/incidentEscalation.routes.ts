@@ -29,6 +29,7 @@ const router = Router();
 router.get(
   "/",
   authenticate,
+  authorize("admin"),
   getPolicies
 );
 
@@ -44,6 +45,7 @@ router.get(
 router.get(
   "/applicable/:priority",
   authenticate,
+  authorize("admin"),
   getApplicablePolicies
 );
 
@@ -55,6 +57,7 @@ router.get(
 router.get(
   "/:id",
   authenticate,
+  authorize("admin"),
   getPolicyById
 );
 

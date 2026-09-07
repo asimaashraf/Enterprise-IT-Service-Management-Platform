@@ -710,7 +710,7 @@ describe("Incident Escalation Integration Tests", () => {
   // ==========================================
 
   it(
-    "should get an escalation policy by ID",
+    "should reject escalation policy configuration reads by an employee",
     async () => {
       const response = await request(app)
         .get(
@@ -721,17 +721,8 @@ describe("Incident Escalation Integration Tests", () => {
           `Bearer ${employeeToken}`
         );
 
-      expect(
-        response.status
-      ).toBe(200);
-
-      expect(
-        response.body.success
-      ).toBe(true);
-
-      expect(
-        response.body.data._id
-      ).toBe(policyId);
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
     }
   );
 
@@ -748,7 +739,7 @@ describe("Incident Escalation Integration Tests", () => {
         )
         .set(
           "Authorization",
-          `Bearer ${employeeToken}`
+          `Bearer ${adminToken}`
         );
 
       expect(
@@ -764,6 +755,22 @@ describe("Incident Escalation Integration Tests", () => {
       ).toBe(organizationId);
     }
   );
+
+  it("should reject employee escalation policy list and applicable-policy reads", async () => {
+    const endpoints = [
+      "/api/v1/incident-escalation",
+      "/api/v1/incident-escalation/applicable/High",
+    ];
+
+    for (const endpoint of endpoints) {
+      const response = await request(app)
+        .get(endpoint)
+        .set("Authorization", `Bearer ${employeeToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+    }
+  });
 
   // ==========================================
   // 9. UPDATE POLICY

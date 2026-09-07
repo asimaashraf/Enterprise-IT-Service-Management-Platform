@@ -149,6 +149,27 @@ export interface EscalationPolicy {
   updatedAt: string
 }
 
+export interface CreateEscalationPolicyPayload {
+  name: string
+  priority: IncidentPriority
+  escalationLevel: EscalationLevel
+  thresholdMinutes: number
+  targetType: EscalationTargetType
+  targetUser?: string
+  targetTeam?: string
+}
+
+export interface UpdateEscalationPolicyPayload {
+  name?: string
+  priority?: IncidentPriority
+  escalationLevel?: EscalationLevel
+  thresholdMinutes?: number
+  targetType?: EscalationTargetType
+  targetUser?: string
+  targetTeam?: string
+  isActive?: boolean
+}
+
 // ==========================================
 // Employee option (for assignment dropdowns)
 // ==========================================
