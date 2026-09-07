@@ -430,6 +430,12 @@ describe("Knowledge Base API", () => {
       expect(response.body.data._id).toBe(
         createdArticleId
       );
+      expect(response.body.data.createdBy).toEqual(
+        expect.objectContaining({
+          _id: adminId,
+          name: expect.any(String),
+        })
+      );
     }
   );
 
@@ -917,6 +923,103 @@ describe("Knowledge Base API", () => {
 
       expect(missingAttachment.status).toBe(404);
       expect(missingAttachment.body.success).toBe(false);
+    }
+  );
+
+  it(
+    "should restrict employee visibility to published tenant knowledge base articles",
+    async () => {
+      const suffix = Date.now().toString();
+      const [publishedArticle, unpublishedArticle] = await KnowledgeBase.create([
+        {
+          title: `Published visibility article ${suffix}`,
+          content: `published-visibility-${suffix}`,
+          articleType: "Article",
+          organizationId,
+          createdBy: adminId,
+          isPublished: true,
+        },
+        {
+          title: `Unpublished visibility article ${suffix}`,
+          content: `unpublished-visibility-${suffix}`,
+          articleType: "FAQ",
+          organizationId,
+          createdBy: adminId,
+          isPublished: false,
+        },
+      ]);
+
+      try {
+        const publishedArticleId = publishedArticle._id.toString();
+        const unpublishedArticleId = unpublishedArticle._id.toString();
+
+        const adminListResponse = await request(app)
+          .get("/api/v1/knowledge-base")
+          .set("Authorization", `Bearer ${adminToken}`);
+
+        expect(adminListResponse.status).toBe(200);
+        expect(
+          adminListResponse.body.data.some(
+            (article: { _id: string }) => article._id === publishedArticleId
+          )
+        ).toBe(true);
+        expect(
+          adminListResponse.body.data.some(
+            (article: { _id: string }) => article._id === unpublishedArticleId
+          )
+        ).toBe(true);
+
+        const employeeListResponse = await request(app)
+          .get("/api/v1/knowledge-base")
+          .set("Authorization", `Bearer ${employeeToken}`);
+
+        expect(employeeListResponse.status).toBe(200);
+        expect(
+          employeeListResponse.body.data.every(
+            (article: { isPublished: boolean }) => article.isPublished
+          )
+        ).toBe(true);
+        expect(
+          employeeListResponse.body.data.some(
+            (article: { _id: string }) => article._id === publishedArticleId
+          )
+        ).toBe(true);
+        expect(
+          employeeListResponse.body.data.some(
+            (article: { _id: string }) => article._id === unpublishedArticleId
+          )
+        ).toBe(false);
+
+        const employeeSearchResponse = await request(app)
+          .get("/api/v1/knowledge-base/search")
+          .query({ q: `unpublished-visibility-${suffix}` })
+          .set("Authorization", `Bearer ${employeeToken}`);
+
+        expect(employeeSearchResponse.status).toBe(200);
+        expect(employeeSearchResponse.body.data).toHaveLength(0);
+
+        const unpublishedDetailResponse = await request(app)
+          .get(`/api/v1/knowledge-base/${unpublishedArticleId}`)
+          .set("Authorization", `Bearer ${employeeToken}`);
+
+        expect(unpublishedDetailResponse.status).toBe(404);
+
+        const publishedDetailResponse = await request(app)
+          .get(`/api/v1/knowledge-base/${publishedArticleId}`)
+          .set("Authorization", `Bearer ${employeeToken}`);
+
+        expect(publishedDetailResponse.status).toBe(200);
+
+        const crossTenantResponse = await request(app)
+          .get(`/api/v1/knowledge-base/${publishedArticleId}`)
+          .set("Authorization", `Bearer ${otherOrganizationAdminToken}`);
+
+        expect(crossTenantResponse.status).toBe(404);
+      } finally {
+        await KnowledgeBase.deleteMany({
+          _id: { $in: [publishedArticle._id, unpublishedArticle._id] },
+        });
+      }
     }
   );
 });

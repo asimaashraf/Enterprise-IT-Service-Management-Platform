@@ -100,7 +100,8 @@ export const getKnowledgeBasesController = async (
     }
 
     const articles = await getKnowledgeBases(
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.role === "employee"
     );
 
     return res.status(200).json({
@@ -134,7 +135,8 @@ export const getKnowledgeBaseByIdController = async (
 
     const article = await getKnowledgeBaseById(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.role === "employee"
     );
 
     if (!article) {
@@ -171,7 +173,8 @@ export const searchKnowledgeBasesController = async (
     const query = (req.query.q as string) || "";
     const articles = await searchKnowledgeBases(
       req.user.organizationId,
-      query
+      query,
+      req.user.role === "employee"
     );
 
     return res.status(200).json({
@@ -252,7 +255,8 @@ export const getKnowledgeBaseAttachmentsController = async (
 
     const attachments = await getKnowledgeBaseAttachments(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.role === "employee"
     );
 
     if (!attachments) {
@@ -289,7 +293,8 @@ export const getKnowledgeBaseAttachmentByIdController = async (
     const attachment = await getKnowledgeBaseAttachmentById(
       req.params.id as string,
       req.user.organizationId,
-      req.params.attachmentId as string
+      req.params.attachmentId as string,
+      req.user.role === "employee"
     );
 
     if (!attachment) {

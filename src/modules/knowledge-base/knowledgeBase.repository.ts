@@ -17,38 +17,46 @@ export const knowledgeBaseRepository = {
   },
 
   findAllByOrganization: async (
-    organizationId: string
+    organizationId: string,
+    publishedOnly = false
   ): Promise<IKnowledgeBase[]> => {
     return KnowledgeBase.find({
       organizationId: new mongoose.Types.ObjectId(
         organizationId
       ),
-    }).sort({
-      createdAt: -1,
-    });
+      ...(publishedOnly ? { isPublished: true } : {}),
+    })
+      .sort({
+        createdAt: -1,
+      })
+      .populate("createdBy", "name");
   },
 
   findByIdAndOrganization: async (
     id: string,
-    organizationId: string
+    organizationId: string,
+    publishedOnly = false
   ): Promise<IKnowledgeBase | null> => {
     return KnowledgeBase.findOne({
       _id: id,
       organizationId: new mongoose.Types.ObjectId(
         organizationId
       ),
-    });
+      ...(publishedOnly ? { isPublished: true } : {}),
+    }).populate("createdBy", "name");
   },
 
   searchByOrganization: async (
     organizationId: string,
-    query: string
+    query: string,
+    publishedOnly = false
   ): Promise<IKnowledgeBase[]> => {
     const sanitizedQuery = query.trim();
 
     if (!sanitizedQuery) {
       return knowledgeBaseRepository.findAllByOrganization(
-        organizationId
+        organizationId,
+        publishedOnly
       );
     }
 
@@ -61,6 +69,7 @@ export const knowledgeBaseRepository = {
       organizationId: new mongoose.Types.ObjectId(
         organizationId
       ),
+      ...(publishedOnly ? { isPublished: true } : {}),
       $and: terms.map((term) => ({
         $or: [
           { title: { $regex: term, $options: "i" } },
@@ -68,7 +77,9 @@ export const knowledgeBaseRepository = {
           { category: { $regex: term, $options: "i" } },
         ],
       })),
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .populate("createdBy", "name");
   },
 
   addAttachmentToArticle: async (
@@ -98,13 +109,15 @@ export const knowledgeBaseRepository = {
   findAttachmentByIdAndOrganization: async (
     id: string,
     organizationId: string,
-    attachmentId: string
+    attachmentId: string,
+    publishedOnly = false
   ): Promise<IKnowledgeBase | null> => {
     return KnowledgeBase.findOne({
       _id: id,
       organizationId: new mongoose.Types.ObjectId(
         organizationId
       ),
+      ...(publishedOnly ? { isPublished: true } : {}),
       attachments: {
         $elemMatch: { _id: attachmentId },
       },

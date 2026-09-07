@@ -61,20 +61,24 @@ export const createKnowledgeBase = async (
 // ==========================================
 
 export const getKnowledgeBases = async (
-  organizationId: string
+  organizationId: string,
+  publishedOnly = false
 ) => {
   return knowledgeBaseRepository.findAllByOrganization(
-    organizationId
+    organizationId,
+    publishedOnly
   );
 };
 
 export const searchKnowledgeBases = async (
   organizationId: string,
-  query: string
+  query: string,
+  publishedOnly = false
 ) => {
   return knowledgeBaseRepository.searchByOrganization(
     organizationId,
-    query
+    query,
+    publishedOnly
   );
 };
 
@@ -84,7 +88,8 @@ export const searchKnowledgeBases = async (
 
 export const getKnowledgeBaseById = async (
   id: string,
-  organizationId: string
+  organizationId: string,
+  publishedOnly = false
 ) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return null;
@@ -92,7 +97,8 @@ export const getKnowledgeBaseById = async (
 
   return knowledgeBaseRepository.findByIdAndOrganization(
     id,
-    organizationId
+    organizationId,
+    publishedOnly
   );
 };
 
@@ -145,9 +151,14 @@ export const addKnowledgeBaseAttachment = async (
 
 export const getKnowledgeBaseAttachments = async (
   id: string,
-  organizationId: string
+  organizationId: string,
+  publishedOnly = false
 ) => {
-  const article = await getKnowledgeBaseById(id, organizationId);
+  const article = await getKnowledgeBaseById(
+    id,
+    organizationId,
+    publishedOnly
+  );
 
   if (!article) {
     return null;
@@ -159,7 +170,8 @@ export const getKnowledgeBaseAttachments = async (
 export const getKnowledgeBaseAttachmentById = async (
   id: string,
   organizationId: string,
-  attachmentId: string
+  attachmentId: string,
+  publishedOnly = false
 ) => {
   if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(attachmentId)) {
     return null;
@@ -168,7 +180,8 @@ export const getKnowledgeBaseAttachmentById = async (
   const article = await knowledgeBaseRepository.findAttachmentByIdAndOrganization(
     id,
     organizationId,
-    attachmentId
+    attachmentId,
+    publishedOnly
   );
 
   if (!article) {
