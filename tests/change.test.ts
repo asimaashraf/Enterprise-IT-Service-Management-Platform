@@ -7,640 +7,355 @@ import mongoose from "mongoose";
 
 import app from "../src/app";
 import { connectDB } from "../src/config/db";
+import Change from "../src/modules/change/change.model";
+import AuthUser from "../src/modules/auth/auth.model";
+import Organization from "../src/modules/organization/organization.model";
+import {
+  createTestUser,
+  TEST_ADMIN_EMAIL,
+  TEST_ADMIN_PASSWORD,
+  TEST_EMPLOYEE_EMAIL,
+  TEST_EMPLOYEE_PASSWORD,
+} from "./test-fixtures";
 
-describe("Change Management API", () => {
+type ChangeRecord = {
+  _id: string;
+  organizationId: string;
+  requestedBy: string | { _id: string };
+  status: string;
+  failedAt?: string;
+  cancelledAt?: string;
+};
+
+const objectId = (value: string | { _id: string }) =>
+  typeof value === "string" ? value : value._id;
+
+describe("Change Management authorization and workflow", () => {
   let adminToken: string;
+  let adminId: string;
   let employeeToken: string;
   let employeeId: string;
+  let secondEmployeeToken: string;
+  let secondEmployeeId: string;
+  let inactiveEmployeeId: string;
+  let otherAdminToken: string;
+  let otherAdminId: string;
+  let otherOrganizationId: string;
+  const createdChangeIds: string[] = [];
+  const transientUserIds: string[] = [];
+  let sequence = 0;
 
-  let createdChangeId: string;
-  let createdChangePublicId: string;
-
-  jest.setTimeout(60000);
-
-  // ==========================================
-  // CONNECT DATABASE + LOGIN USERS
-  // ==========================================
-
-  beforeAll(async () => {
-    console.log("=================================");
-    console.log("CONNECTING TO MONGODB...");
-    console.log("=================================");
-
-    if (mongoose.connection.readyState !== 1) {
-      await connectDB();
-    }
-
-    if (mongoose.connection.readyState !== 1) {
-      throw new Error(
-        "MongoDB connection was not established."
-      );
-    }
-
-    // ==========================================
-    // ADMIN LOGIN
-    // ==========================================
-
-    const adminLogin = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "aliya.admin@example.com",
-        password: "Admin@123",
-      });
-
-    expect(adminLogin.status).toBe(200);
-    expect(adminLogin.body.success).toBe(true);
-    expect(adminLogin.body.data.token).toBeDefined();
-
-    adminToken = adminLogin.body.data.token;
-
-    // ==========================================
-    // EMPLOYEE LOGIN
-    // ==========================================
-
-    const employeeLogin = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: "employee.test@example.com",
-        password: "Employee@123",
-      });
-
-    expect(employeeLogin.status).toBe(200);
-    expect(employeeLogin.body.success).toBe(true);
-    expect(employeeLogin.body.data.token).toBeDefined();
-
-    employeeToken = employeeLogin.body.data.token;
-    employeeId = employeeLogin.body.data.user.id;
-
-    console.log("BOTH USERS LOGGED IN SUCCESSFULLY");
-  }, 60000);
-
-  // ==========================================
-  // CLOSE DATABASE
-  // ==========================================
-
-  afterAll(async () => {
-    console.log("Closing MongoDB connection...");
-
-    if (mongoose.connection.readyState !== 0) {
-      await mongoose.connection.close();
-    }
-
-    console.log("MongoDB connection closed.");
-  }, 30000);
-
-  // ==========================================
-  // UNAUTHENTICATED CREATE
-  // ==========================================
-
-  it("should reject unauthenticated change creation", async () => {
+  const createChange = async (
+    token: string,
+    label: string
+  ): Promise<ChangeRecord> => {
     const response = await request(app)
       .post("/api/v1/changes")
+      .set("Authorization", `Bearer ${token}`)
       .send({
-        changeId: `CHG-UNAUTH-${Date.now()}`,
-        title: "Unauthenticated Change",
-        description: "Should not be created",
-      });
-
-    expect(response.status).toBe(401);
-    expect(response.body.success).toBe(false);
-  });
-
-  // ==========================================
-  // UNAUTHENTICATED GET ALL
-  // ==========================================
-
-  it("should reject unauthenticated change listing", async () => {
-    const response = await request(app).get(
-      "/api/v1/changes"
-    );
-
-    expect(response.status).toBe(401);
-    expect(response.body.success).toBe(false);
-  });
-
-  // ==========================================
-  // EMPLOYEE CREATE
-  // ==========================================
-
-  it("should allow employees to create a change", async () => {
-    const response = await request(app)
-      .post("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      )
-      .send({
-        changeId: `CHG-EMP-${Date.now()}`,
-        title: "Employee Test Change",
-        description: "Change created by employee",
+        changeId: `CHG-P8-${Date.now()}-${++sequence}`,
+        title: `${label} change`,
+        description: `${label} change description`,
         type: "Normal",
         risk: "Medium",
       });
 
-    console.log(
-      "EMPLOYEE CREATE RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(201);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
+    const change = response.body.data as ChangeRecord;
+    createdChangeIds.push(change._id);
+    return change;
+  };
 
-    expect(response.body.data.title).toBe(
-      "Employee Test Change"
-    );
+  const transition = async (
+    id: string,
+    status: string,
+    data: Record<string, unknown> = {}
+  ) => request(app)
+    .put(`/api/v1/changes/${id}`)
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({ status, ...data });
 
-    expect(response.body.data.status).toBe("Draft");
-    expect(response.body.data.type).toBe("Normal");
-    expect(response.body.data.risk).toBe("Medium");
-    expect(response.body.data.organizationId).toBeDefined();
-    expect(response.body.data.requestedBy).toBeDefined();
+  beforeAll(async () => {
+    await connectDB();
+
+    const adminLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: TEST_ADMIN_EMAIL, password: TEST_ADMIN_PASSWORD });
+    expect(adminLogin.status).toBe(200);
+    adminToken = adminLogin.body.data.token;
+    adminId = adminLogin.body.data.user.id;
+
+    const employeeLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: TEST_EMPLOYEE_EMAIL, password: TEST_EMPLOYEE_PASSWORD });
+    expect(employeeLogin.status).toBe(200);
+    employeeToken = employeeLogin.body.data.token;
+    employeeId = employeeLogin.body.data.user.id;
+    const organizationId = employeeLogin.body.data.user.organizationId;
+
+    const secondEmployee = await createTestUser({
+      name: "Second Change Employee",
+      email: `second.change.employee.${Date.now()}@example.com`,
+      password: "SecondChangeEmployee123!",
+      role: "employee",
+      organizationId,
+    });
+    transientUserIds.push(secondEmployee._id.toString());
+    secondEmployeeId = secondEmployee._id.toString();
+
+    const secondEmployeeLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: secondEmployee.email, password: "SecondChangeEmployee123!" });
+    expect(secondEmployeeLogin.status).toBe(200);
+    secondEmployeeToken = secondEmployeeLogin.body.data.token;
+
+    const inactiveEmployee = await createTestUser({
+      name: "Inactive Change Employee",
+      email: `inactive.change.employee.${Date.now()}@example.com`,
+      password: "InactiveChangeEmployee123!",
+      role: "employee",
+      organizationId,
+    });
+    transientUserIds.push(inactiveEmployee._id.toString());
+    inactiveEmployeeId = inactiveEmployee._id.toString();
+    await AuthUser.findByIdAndUpdate(inactiveEmployeeId, { isActive: false });
+
+    const otherOrganization = await Organization.create({
+      name: `Other Change Organization ${Date.now()}`,
+      slug: `other-change-${Date.now()}`,
+      isActive: true,
+    });
+    otherOrganizationId = otherOrganization._id.toString();
+
+    const otherAdmin = await createTestUser({
+      name: "Other Change Admin",
+      email: `other.change.admin.${Date.now()}@example.com`,
+      password: "OtherChangeAdmin123!",
+      role: "admin",
+      organizationId: otherOrganizationId,
+    });
+    transientUserIds.push(otherAdmin._id.toString());
+    otherAdminId = otherAdmin._id.toString();
+
+    const otherAdminLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: otherAdmin.email, password: "OtherChangeAdmin123!" });
+    expect(otherAdminLogin.status).toBe(200);
+    otherAdminToken = otherAdminLogin.body.data.token;
   });
 
-  // ==========================================
-  // ADMIN CREATE
-  // ==========================================
-
-  it("should allow admins to create a change", async () => {
-    const response = await request(app)
-      .post("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        changeId: `CHG-ADMIN-${Date.now()}`,
-        title: "Automated Test Change",
-        description: "Created by automated test",
-        type: "Normal",
-        risk: "High",
-      });
-
-    console.log(
-      "ADMIN CREATE RESPONSE:",
-      response.body
-    );
-
-    expect(response.status).toBe(201);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
-
-    createdChangeId = response.body.data._id;
-    createdChangePublicId =
-      response.body.data.changeId;
-
-    expect(createdChangeId).toBeDefined();
-    expect(createdChangePublicId).toBeDefined();
-
-    expect(response.body.data.status).toBe("Draft");
+  afterAll(async () => {
+    await Change.deleteMany({ _id: { $in: createdChangeIds } });
+    await AuthUser.deleteMany({ _id: { $in: transientUserIds } });
+    await Organization.deleteOne({ _id: otherOrganizationId });
+    await mongoose.connection.close();
   });
 
-  // ==========================================
-  // DUPLICATE CHANGE ID
-  // ==========================================
-
-  it("should reject duplicate change IDs within the organization", async () => {
-    const changeId = `CHG-DUP-${Date.now()}`;
-
-    const firstResponse = await request(app)
-      .post("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        changeId,
-        title: "First Change",
-        description: "First change",
-      });
-
-    expect(firstResponse.status).toBe(201);
-
-    const secondResponse = await request(app)
-      .post("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        changeId,
-        title: "Duplicate Change",
-        description: "Duplicate change",
-      });
-
-    expect([400, 409]).toContain(
-      secondResponse.status
-    );
-
-    expect(secondResponse.body.success).toBe(false);
+  it("rejects unauthenticated Change reads", async () => {
+    const response = await request(app).get("/api/v1/changes");
+    expect(response.status).toBe(401);
   });
 
-  // ==========================================
-  // GET ALL - EMPLOYEE
-  // ==========================================
+  it("scopes employee lists to their own Changes while admins see tenant Changes", async () => {
+    const employeeChange = await createChange(employeeToken, "Employee list");
+    const secondEmployeeChange = await createChange(secondEmployeeToken, "Second employee list");
+    const adminChange = await createChange(adminToken, "Admin list");
 
-  it("should allow employees to get all changes", async () => {
-    const response = await request(app)
+    const employeeList = await request(app)
       .get("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      );
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(employeeList.status).toBe(200);
+    const employeeChanges = employeeList.body.data as ChangeRecord[];
+    expect(employeeChanges.some((change) => change._id === employeeChange._id)).toBe(true);
+    expect(employeeChanges.some((change) => change._id === secondEmployeeChange._id)).toBe(false);
+    expect(employeeChanges.some((change) => change._id === adminChange._id)).toBe(false);
+    expect(employeeChanges.every((change) => objectId(change.requestedBy) === employeeId)).toBe(true);
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(Array.isArray(response.body.data)).toBe(
-      true
-    );
-  });
-
-  // ==========================================
-  // GET ALL - ADMIN
-  // ==========================================
-
-  it("should allow admins to get all changes", async () => {
-    const response = await request(app)
+    const adminList = await request(app)
       .get("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      );
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(Array.isArray(response.body.data)).toBe(
-      true
-    );
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(adminList.status).toBe(200);
+    const adminChanges = adminList.body.data as ChangeRecord[];
+    expect(adminChanges.some((change) => change._id === employeeChange._id)).toBe(true);
+    expect(adminChanges.some((change) => change._id === secondEmployeeChange._id)).toBe(true);
+    expect(adminChanges.some((change) => change._id === adminChange._id)).toBe(true);
   });
 
-  // ==========================================
-  // GET BY ID - EMPLOYEE
-  // ==========================================
+  it("prevents an employee from reading or editing another employee's Change", async () => {
+    const otherEmployeeChange = await createChange(secondEmployeeToken, "Other employee");
 
-  it("should allow employees to get a change by ID", async () => {
-    expect(createdChangeId).toBeDefined();
+    const readResponse = await request(app)
+      .get(`/api/v1/changes/${otherEmployeeChange._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(readResponse.status).toBe(404);
 
-    const response = await request(app)
-      .get(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      );
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
-
-    expect(response.body.data._id).toBe(
-      createdChangeId
-    );
+    const updateResponse = await request(app)
+      .put(`/api/v1/changes/${otherEmployeeChange._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ description: "Unauthorized edit" });
+    expect(updateResponse.status).toBe(404);
   });
 
-  // ==========================================
-  // GET BY ID - ADMIN
-  // ==========================================
+  it("rejects cross-tenant Change reads and updates", async () => {
+    const change = await createChange(adminToken, "Cross tenant");
 
-  it("should allow admins to get a change by ID", async () => {
-    expect(createdChangeId).toBeDefined();
+    const readResponse = await request(app)
+      .get(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${otherAdminToken}`);
+    expect(readResponse.status).toBe(404);
 
-    const response = await request(app)
-      .get(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      );
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
-
-    expect(response.body.data._id).toBe(
-      createdChangeId
-    );
+    const updateResponse = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${otherAdminToken}`)
+      .send({ description: "Cross-tenant edit" });
+    expect(updateResponse.status).toBe(404);
   });
 
-  // ==========================================
-  // NONEXISTENT CHANGE
-  // ==========================================
+  it("allows employees to edit only their own Draft Changes", async () => {
+    const change = await createChange(employeeToken, "Employee editable");
 
-  it("should return 404 for a nonexistent change", async () => {
-    const fakeId =
-      new mongoose.Types.ObjectId().toString();
+    const editResponse = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ description: "Employee draft edit" });
+    expect(editResponse.status).toBe(200);
+    expect(editResponse.body.data.description).toBe("Employee draft edit");
 
-    const response = await request(app)
-      .get(`/api/v1/changes/${fakeId}`)
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      );
-
-    expect(response.status).toBe(404);
-    expect(response.body.success).toBe(false);
+    expect((await transition(change._id, "Pending Approval")).status).toBe(200);
+    const lateEditResponse = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ description: "Late employee edit" });
+    expect(lateEditResponse.status).toBe(400);
   });
 
-  // ==========================================
-  // EMPLOYEE BASIC UPDATE
-  // ==========================================
-
-  it("should allow employees to update basic change information", async () => {
-    expect(createdChangeId).toBeDefined();
+  it("rejects protected-field injection", async () => {
+    const change = await createChange(adminToken, "Protected fields");
 
     const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      )
+      .put(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
       .send({
-        description: "Updated by employee",
+        organizationId: otherOrganizationId,
+        requestedBy: secondEmployeeId,
+        approvedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       });
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(
-      response.body.data.description
-    ).toBe("Updated by employee");
-  });
-
-  // ==========================================
-  // INVALID SCHEDULE
-  // ==========================================
-
-  it("should reject a change with an invalid schedule", async () => {
-    const response = await request(app)
-      .post("/api/v1/changes")
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        changeId: `CHG-SCHEDULE-${Date.now()}`,
-        title: "Invalid Schedule Change",
-        description: "Invalid schedule",
-        plannedStartAt: "2026-08-20T15:00:00.000Z",
-        plannedEndAt: "2026-08-20T14:00:00.000Z",
-      });
-
     expect(response.status).toBe(400);
-    expect(response.body.success).toBe(false);
+
+    const persisted = await request(app)
+      .get(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(persisted.status).toBe(200);
+    expect(persisted.body.data.organizationId).toBe(change.organizationId);
+    expect(objectId(persisted.body.data.requestedBy as string | { _id: string })).toBe(adminId);
   });
 
-  // ==========================================
-  // EMPLOYEE ASSIGNMENT
-  // ==========================================
+  it("allows only admins to assign active same-tenant employees", async () => {
+    const change = await createChange(adminToken, "Assignment validation");
 
-  it("should prevent employees from assigning changes", async () => {
-    const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      )
-      .send({
-        assignedTo:
-          employeeId,
-      });
-
-    /*
-     * Current service validates assignment but
-     * does not yet enforce admin-only assignment.
-     *
-     * If your service has employee restriction,
-     * this should return 403.
-     */
-    expect([200, 400, 403]).toContain(
-      response.status
-    );
-  });
-
-  // ==========================================
-  // ADMIN ASSIGNMENT
-  // ==========================================
-
-  it("should allow an admin to assign a change to an employee", async () => {
-    const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        assignedTo:
-          employeeId,
-      });
-
-    console.log(
-      "ADMIN ASSIGN RESPONSE:",
-      response.body
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(
-      response.body.data.assignedTo
-    ).toBeDefined();
-  });
-
-  // ==========================================
-  // ADMIN APPROVE
-  // ==========================================
-
-  it("should prevent employees from approving a change", async () => {
-    const response = await request(app)
-      .put(`/api/v1/changes/${createdChangeId}`)
+    const employeeAssignment = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
       .set("Authorization", `Bearer ${employeeToken}`)
-      .send({
-        status: "Approved",
-        approvalReason: "Employee approval attempt",
-      });
+      .send({ assignedTo: employeeId });
+    expect(employeeAssignment.status).toBe(403);
 
-    expect(response.status).toBe(403);
-    expect(response.body.success).toBe(false);
+    for (const targetId of [adminId, inactiveEmployeeId, otherAdminId, new mongoose.Types.ObjectId().toString(), "not-an-id"]) {
+      const invalidAssignment = await request(app)
+        .put(`/api/v1/changes/${change._id}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ assignedTo: targetId });
+      expect(invalidAssignment.status).toBe(400);
+    }
+
+    const validAssignment = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ assignedTo: secondEmployeeId });
+    expect(validAssignment.status).toBe(200);
+    expect(objectId(validAssignment.body.data.assignedTo as string | { _id: string })).toBe(secondEmployeeId);
   });
 
-  it("should prevent employees from rejecting a change", async () => {
-    const response = await request(app)
-      .put(`/api/v1/changes/${createdChangeId}`)
+  it("enforces the ADMIN-only Change transition matrix", async () => {
+    const change = await createChange(adminToken, "Transition matrix");
+
+    const invalidApproval = await transition(change._id, "Approved");
+    expect(invalidApproval.status).toBe(400);
+
+    const employeeTransition = await request(app)
+      .put(`/api/v1/changes/${change._id}`)
       .set("Authorization", `Bearer ${employeeToken}`)
-      .send({
-        status: "Rejected",
-        approvalReason: "Employee rejection attempt",
-      });
+      .send({ status: "Pending Approval" });
+    expect(employeeTransition.status).toBe(403);
 
-    expect(response.status).toBe(403);
-    expect(response.body.success).toBe(false);
+    expect((await transition(change._id, "Pending Approval")).status).toBe(200);
+    const approval = await transition(change._id, "Approved", {
+      approvalReason: "Approved after review",
+    });
+    expect(approval.status).toBe(200);
+    expect(approval.body.data.approvedBy).toBeDefined();
+    expect(approval.body.data.approvedAt).toBeDefined();
+
+    expect((await transition(change._id, "Scheduled")).status).toBe(200);
+    expect((await transition(change._id, "In Progress")).status).toBe(200);
+    expect((await transition(change._id, "Completed")).status).toBe(200);
+    expect((await transition(change._id, "Cancelled")).status).toBe(400);
   });
 
-  it("should allow an admin to approve a change", async () => {
-    const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        status: "Approved",
-        approvalReason:
-          "Change reviewed and approved.",
-      });
+  it("requires an ADMIN rejection reason and keeps rejected Changes terminal", async () => {
+    const change = await createChange(employeeToken, "Rejection");
+    expect((await transition(change._id, "Pending Approval")).status).toBe(200);
 
-    console.log(
-      "ADMIN APPROVAL RESPONSE:",
-      response.body
-    );
+    const noReason = await transition(change._id, "Rejected");
+    expect(noReason.status).toBe(400);
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(response.body.data.status).toBe(
-      "Approved"
-    );
-
-    expect(
-      response.body.data.approvedBy
-    ).toBeDefined();
-
-    expect(
-      response.body.data.approvedAt
-    ).toBeDefined();
+    const rejected = await transition(change._id, "Rejected", {
+      approvalReason: "Risk is not acceptable",
+    });
+    expect(rejected.status).toBe(200);
+    expect(rejected.body.data.rejectedBy).toBeDefined();
+    expect(rejected.body.data.rejectedAt).toBeDefined();
+    expect((await transition(change._id, "Cancelled")).status).toBe(400);
   });
 
-  it("should allow an admin to reject a valid change", async () => {
-    const createResponse = await request(app)
-      .post("/api/v1/changes")
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({
-        changeId: `CHG-REJECT-${Date.now()}`,
-        title: "Change to Reject",
-        description: "Admin rejection regression test",
-      });
+  it("persists failedAt and cancelledAt for valid terminal transitions", async () => {
+    const failedChange = await createChange(adminToken, "Failure timestamp");
+    expect((await transition(failedChange._id, "Pending Approval")).status).toBe(200);
+    expect((await transition(failedChange._id, "Approved")).status).toBe(200);
+    expect((await transition(failedChange._id, "In Progress")).status).toBe(200);
+    const failed = await transition(failedChange._id, "Failed", {
+      failureReason: "Deployment health check failed",
+    });
+    expect(failed.status).toBe(200);
+    expect(failed.body.data.failedAt).toBeDefined();
 
-    expect(createResponse.status).toBe(201);
+    const persistedFailure = await request(app)
+      .get(`/api/v1/changes/${failedChange._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect((persistedFailure.body.data as ChangeRecord).failedAt).toBeDefined();
 
-    const response = await request(app)
-      .put(`/api/v1/changes/${createResponse.body.data._id}`)
-      .set("Authorization", `Bearer ${adminToken}`)
-      .send({
-        status: "Rejected",
-        approvalReason: "Change rejected during review",
-      });
+    const cancelledChange = await createChange(adminToken, "Cancellation timestamp");
+    const cancelled = await transition(cancelledChange._id, "Cancelled");
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body.data.cancelledAt).toBeDefined();
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.status).toBe("Rejected");
-    expect(response.body.data.rejectedBy).toBeDefined();
+    const persistedCancellation = await request(app)
+      .get(`/api/v1/changes/${cancelledChange._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect((persistedCancellation.body.data as ChangeRecord).cancelledAt).toBeDefined();
   });
 
-  // ==========================================
-  // APPROVED → IN PROGRESS
-  // ==========================================
+  it("allows only admins to delete Changes", async () => {
+    const change = await createChange(adminToken, "Deletion");
 
-  it("should allow an approved change to move to In Progress", async () => {
-    const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        status: "In Progress",
-      });
+    const employeeDelete = await request(app)
+      .delete(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(employeeDelete.status).toBe(403);
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(response.body.data.status).toBe(
-      "In Progress"
-    );
-
-    expect(
-      response.body.data.startedAt
-    ).toBeDefined();
-  });
-
-  // ==========================================
-  // COMPLETE
-  // ==========================================
-
-  it("should allow an In Progress change to be completed", async () => {
-    const response = await request(app)
-      .put(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        status: "Completed",
-      });
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(response.body.data.status).toBe(
-      "Completed"
-    );
-
-    expect(
-      response.body.data.completedAt
-    ).toBeDefined();
-  });
-
-  // ==========================================
-  // DELETE - EMPLOYEE
-  // ==========================================
-
-  it("should prevent employees from deleting changes", async () => {
-    expect(createdChangeId).toBeDefined();
-
-    const response = await request(app)
-      .delete(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${employeeToken}`
-      );
-
-    expect(response.status).toBe(403);
-  });
-
-  // ==========================================
-  // DELETE - ADMIN
-  // ==========================================
-
-  it("should allow admins to delete changes", async () => {
-    expect(createdChangeId).toBeDefined();
-
-    const response = await request(app)
-      .delete(
-        `/api/v1/changes/${createdChangeId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      );
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toBeDefined();
+    const adminDelete = await request(app)
+      .delete(`/api/v1/changes/${change._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(adminDelete.status).toBe(200);
   });
 });

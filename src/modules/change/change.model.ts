@@ -61,6 +61,8 @@ export interface IChange extends Document {
 
   startedAt?: Date;
   completedAt?: Date;
+  failedAt?: Date;
+  cancelledAt?: Date;
 
   failureReason?: string;
 
@@ -250,6 +252,14 @@ const changeSchema = new Schema<IChange>(
     },
 
     completedAt: {
+      type: Date,
+    },
+
+    failedAt: {
+      type: Date,
+    },
+
+    cancelledAt: {
       type: Date,
     },
 

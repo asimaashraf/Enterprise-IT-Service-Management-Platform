@@ -44,6 +44,72 @@ interface UpdateChangeData {
   failureReason?: string;
 }
 
+type ChangeActorRole = "admin" | "employee";
+
+const editableFields = new Set<keyof UpdateChangeData>([
+  "title",
+  "description",
+  "type",
+  "risk",
+  "status",
+  "assignedTo",
+  "affectedAssets",
+  "plannedStartAt",
+  "plannedEndAt",
+  "rollbackPlan",
+  "approvalReason",
+  "failureReason",
+]);
+
+const changeStatuses = new Set<ChangeStatus>([
+  "Draft",
+  "Pending Approval",
+  "Approved",
+  "Rejected",
+  "Scheduled",
+  "In Progress",
+  "Completed",
+  "Failed",
+  "Cancelled",
+]);
+
+const validTransitions: Partial<Record<ChangeStatus, ChangeStatus[]>> = {
+  "Draft": ["Pending Approval", "Cancelled"],
+  "Pending Approval": ["Approved", "Rejected", "Cancelled"],
+  "Approved": ["Scheduled", "In Progress", "Cancelled"],
+  "Scheduled": ["In Progress", "Cancelled"],
+  "In Progress": ["Completed", "Failed"],
+};
+
+const hasOwn = (
+  value: object,
+  key: string
+) => Object.prototype.hasOwnProperty.call(value, key);
+
+const allowlistedUpdate = (
+  data: Record<string, unknown>
+): UpdateChangeData => {
+  const unsupportedFields = Object.keys(data).filter(
+    (field) => !editableFields.has(field as keyof UpdateChangeData)
+  );
+
+  if (unsupportedFields.length > 0) {
+    throw new Error(
+      `Unsupported change update fields: ${unsupportedFields.join(", ")}`
+    );
+  }
+
+  const update: UpdateChangeData = {};
+
+  for (const field of editableFields) {
+    if (hasOwn(data, field)) {
+      update[field] = data[field] as never;
+    }
+  }
+
+  return update;
+};
+
 // ==========================================
 // CREATE CHANGE
 // ==========================================
@@ -148,8 +214,17 @@ export const createChange = async (
 // ==========================================
 
 export const getChangesByOrganization = async (
-  organizationId: string
+  organizationId: string,
+  userId: string,
+  role: ChangeActorRole
 ) => {
+  if (role === "employee") {
+    return changeRepository.findAllByRequesterAndOrganization(
+      userId,
+      organizationId
+    );
+  }
+
   return changeRepository.findAllByOrganization(
     organizationId
   );
@@ -161,16 +236,23 @@ export const getChangesByOrganization = async (
 
 export const getChangeById = async (
   id: string,
-  organizationId: string
+  organizationId: string,
+  userId: string,
+  role: ChangeActorRole
 ) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return null;
   }
 
-  return changeRepository.findByIdAndOrganization(
-    id,
-    organizationId
-  );
+  if (role === "employee") {
+    return changeRepository.findByIdAndRequesterAndOrganization(
+      id,
+      userId,
+      organizationId
+    );
+  }
+
+  return changeRepository.findByIdAndOrganization(id, organizationId);
 };
 
 // ==========================================
@@ -181,7 +263,8 @@ export const updateChange = async (
   id: string,
   organizationId: string,
   userId: string,
-  data: UpdateChangeData
+  role: ChangeActorRole,
+  rawData: Record<string, unknown>
 ) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return null;
@@ -197,27 +280,95 @@ export const updateChange = async (
     return null;
   }
 
-  const currentStatus = String(
-    change.status
-  ).trim();
+  if (
+    role === "employee" &&
+    change.requestedBy.toString() !== userId
+  ) {
+    return null;
+  }
 
-  const requestedStatus = data.status
-    ? String(data.status).trim()
-    : undefined;
+  const data = allowlistedUpdate(rawData);
+  const currentStatus = change.status;
 
-  const updateData: Record<string, any> = {
-    ...data,
-  };
+  const requestedStatus = data.status;
+
+  if (requestedStatus && !changeStatuses.has(requestedStatus)) {
+    throw new Error("Invalid change status");
+  }
+
+  if (
+    data.approvalReason !== undefined &&
+    requestedStatus !== "Approved" &&
+    requestedStatus !== "Rejected"
+  ) {
+    throw new Error(
+      "Approval reason can only be provided when approving or rejecting a change"
+    );
+  }
+
+  if (
+    data.failureReason !== undefined &&
+    requestedStatus !== "Failed"
+  ) {
+    throw new Error(
+      "Failure reason can only be provided when failing a change"
+    );
+  }
+
+  if (role === "employee") {
+    if (currentStatus !== "Draft") {
+      throw new Error("Employees can only edit draft changes");
+    }
+
+    if (requestedStatus) {
+      throw new Error("Only administrators can change change status");
+    }
+
+    if (data.assignedTo !== undefined) {
+      throw new Error("Only administrators can assign changes");
+    }
+  }
+
+  const updateData: Record<string, unknown> = {};
+
+  for (const field of editableFields) {
+    if (field !== "status" && field !== "assignedTo" && hasOwn(data, field)) {
+      updateData[field] = data[field];
+    }
+  }
 
   if (requestedStatus) {
     updateData.status = requestedStatus;
+
+    const allowedNextStatuses = validTransitions[currentStatus] || [];
+
+    if (!allowedNextStatuses.includes(requestedStatus)) {
+      throw new Error(
+        `Invalid change status transition: ${currentStatus} -> ${requestedStatus}`
+      );
+    }
+
+    if (role !== "admin") {
+      throw new Error("Only administrators can change change status");
+    }
   }
 
   // ==========================================
   // ASSIGNMENT VALIDATION
   // ==========================================
 
-  if (data.assignedTo) {
+  if (data.assignedTo !== undefined) {
+    if (role !== "admin") {
+      throw new Error("Only administrators can assign changes");
+    }
+
+    if (
+      typeof data.assignedTo !== "string" ||
+      !data.assignedTo
+    ) {
+      throw new Error("Invalid assigned user ID");
+    }
+
     if (
       !mongoose.Types.ObjectId.isValid(
         data.assignedTo
@@ -254,7 +405,16 @@ export const updateChange = async (
   // AFFECTED ASSET VALIDATION
   // ==========================================
 
-  if (data.affectedAssets) {
+  if (data.affectedAssets !== undefined) {
+    if (
+      !Array.isArray(data.affectedAssets) ||
+      !data.affectedAssets.every(
+        (assetId) => typeof assetId === "string"
+      )
+    ) {
+      throw new Error("Affected assets must be an array of asset IDs");
+    }
+
     const assets =
       await assetRepository.findByIdsAndOrganization(
         data.affectedAssets,
@@ -331,15 +491,6 @@ export const updateChange = async (
   // ==========================================
 
   if (requestedStatus === "In Progress") {
-    if (
-      currentStatus !== "Approved" &&
-      currentStatus !== "Scheduled"
-    ) {
-      throw new Error(
-        `Only approved or scheduled changes can be started. Current status: ${currentStatus}`
-      );
-    }
-
     updateData.startedAt = new Date();
   }
 
@@ -348,12 +499,6 @@ export const updateChange = async (
   // ==========================================
 
   if (requestedStatus === "Completed") {
-    if (currentStatus !== "In Progress") {
-      throw new Error(
-        "Only changes in progress can be completed"
-      );
-    }
-
     updateData.completedAt = new Date();
   }
 
@@ -362,12 +507,6 @@ export const updateChange = async (
   // ==========================================
 
   if (requestedStatus === "Failed") {
-    if (currentStatus !== "In Progress") {
-      throw new Error(
-        "Only changes in progress can be marked as failed"
-      );
-    }
-
     if (!data.failureReason) {
       throw new Error(
         "Failure reason is required when marking a change as failed"
@@ -382,15 +521,6 @@ export const updateChange = async (
   // ==========================================
 
   if (requestedStatus === "Cancelled") {
-    if (
-      currentStatus === "Completed" ||
-      currentStatus === "Failed"
-    ) {
-      throw new Error(
-        "Completed or failed changes cannot be cancelled"
-      );
-    }
-
     updateData.cancelledAt = new Date();
   }
 

@@ -100,7 +100,9 @@ export const getChangesController = async (
     // ------------------------------------------
 
     const changes = await getChangesByOrganization(
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.id,
+      req.user.role
     );
 
     return res.status(200).json({
@@ -154,7 +156,9 @@ export const getChangeController = async (
 
     const change = await getChangeById(
       changeId,
-      req.user.organizationId
+      req.user.organizationId,
+      req.user.id,
+      req.user.role
     );
 
     if (!change) {
@@ -207,15 +211,23 @@ export const updateChangeController = async (
       });
     }
 
+    const hasStatusUpdate = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "status"
+    );
+    const hasAssignmentUpdate = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "assignedTo"
+    );
+
     if (
-      (req.body.status === "Approved" ||
-        req.body.status === "Rejected") &&
+      (hasStatusUpdate || hasAssignmentUpdate) &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
         success: false,
         message:
-          "Only administrators can approve or reject changes",
+          "Only administrators can assign changes or change workflow status",
       });
     }
 
@@ -236,6 +248,7 @@ export const updateChangeController = async (
       changeId,
       req.user.organizationId,
       req.user.id,
+      req.user.role,
       req.body
     );
 

@@ -36,6 +36,20 @@ export const changeRepository = {
     );
   },
 
+  findAllByRequesterAndOrganization: async (
+    requestedBy: string,
+    organizationId: string
+  ): Promise<IChange[]> => {
+    return populateChange(
+      Change.find({
+        organizationId,
+        requestedBy,
+      }).sort({
+        createdAt: -1,
+      })
+    );
+  },
+
   findByOrganization: async (
     organizationId: string
   ): Promise<IChange[]> => {
@@ -51,6 +65,20 @@ export const changeRepository = {
     return populateChange(
       Change.findOne({
         _id: id,
+        organizationId,
+      })
+    );
+  },
+
+  findByIdAndRequesterAndOrganization: async (
+    id: string,
+    requestedBy: string,
+    organizationId: string
+  ): Promise<IChange | null> => {
+    return populateChange(
+      Change.findOne({
+        _id: id,
+        requestedBy,
         organizationId,
       })
     );
