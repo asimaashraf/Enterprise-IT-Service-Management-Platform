@@ -40,6 +40,11 @@ interface UpdateAssetData {
   warrantyEndDate?: Date;
 }
 
+interface AssetReadContext {
+  id: string;
+  role: "admin" | "employee";
+}
+
 const lifecycleTransitions: Record<string, string[]> = {
   Available: ["Assigned", "Maintenance", "Retired"],
   Assigned: ["Available", "Maintenance", "Retired"],
@@ -83,6 +88,12 @@ export const createAsset = async (
     );
   }
 
+  if (data.status === "Assigned") {
+    throw new Error(
+      "An asset must be assigned through the assignment operation"
+    );
+  }
+
   return assetRepository.create({
     assetId: data.assetId,
     name: data.name,
@@ -105,16 +116,22 @@ export const createAsset = async (
 // ==========================================
 
 export const getAssetsByOrganization = async (
-  organizationId: string
+  organizationId: string,
+  reader: AssetReadContext
 ) => {
   validateObjectId(
     organizationId,
     "organization ID"
   );
 
-  return assetRepository.findAllByOrganization(
-    organizationId
-  );
+  if (reader.role === "employee") {
+    return assetRepository.findAllAssignedToUserByOrganization(
+      organizationId,
+      reader.id
+    );
+  }
+
+  return assetRepository.findAllByOrganization(organizationId);
 };
 
 // ==========================================
@@ -123,7 +140,8 @@ export const getAssetsByOrganization = async (
 
 export const getAssetById = async (
   id: string,
-  organizationId: string
+  organizationId: string,
+  reader: AssetReadContext
 ) => {
   validateObjectId(id, "asset ID");
 
@@ -132,10 +150,15 @@ export const getAssetById = async (
     "organization ID"
   );
 
-  return assetRepository.findByIdAndOrganization(
-    id,
-    organizationId
-  );
+  if (reader.role === "employee") {
+    return assetRepository.findByIdAndOrganizationAndAssignedTo(
+      id,
+      organizationId,
+      reader.id
+    );
+  }
+
+  return assetRepository.findByIdAndOrganization(id, organizationId);
 };
 
 // ==========================================
@@ -464,15 +487,13 @@ export const createMaintenanceRecord = async (
 
 export const getMaintenanceHistory = async (
   assetId: string,
-  organizationId: string
+  organizationId: string,
+  reader: AssetReadContext
 ) => {
   validateObjectId(assetId, "asset ID");
   validateObjectId(organizationId, "organization ID");
 
-  const asset = await assetRepository.findOne({
-    _id: assetId,
-    organizationId,
-  });
+  const asset = await getAssetById(assetId, organizationId, reader);
   if (!asset) {
     throw new Error("Asset not found");
   }
@@ -485,15 +506,13 @@ export const getMaintenanceHistory = async (
 
 export const getLifecycleHistory = async (
   assetId: string,
-  organizationId: string
+  organizationId: string,
+  reader: AssetReadContext
 ) => {
   validateObjectId(assetId, "asset ID");
   validateObjectId(organizationId, "organization ID");
 
-  const asset = await assetRepository.findOne({
-    _id: assetId,
-    organizationId,
-  });
+  const asset = await getAssetById(assetId, organizationId, reader);
   if (!asset) {
     throw new Error("Asset not found");
   }

@@ -40,6 +40,23 @@ export const assetRepository = {
       });
   },
 
+  findAllAssignedToUserByOrganization: async (
+    organizationId: string,
+    userId: string
+  ): Promise<IAsset[]> => {
+    return Asset.find({
+      organizationId,
+      assignedTo: userId,
+    })
+      .populate(
+        "assignedTo",
+        "name email role"
+      )
+      .sort({
+        createdAt: -1,
+      });
+  },
+
   // ==========================================
   // FIND BY ORGANIZATION
   // Used by Analytics
@@ -81,6 +98,21 @@ export const assetRepository = {
     return Asset.findOne({
       _id: id,
       organizationId,
+    }).populate(
+      "assignedTo",
+      "name email role"
+    );
+  },
+
+  findByIdAndOrganizationAndAssignedTo: async (
+    id: string,
+    organizationId: string,
+    userId: string
+  ): Promise<IAsset | null> => {
+    return Asset.findOne({
+      _id: id,
+      organizationId,
+      assignedTo: userId,
     }).populate(
       "assignedTo",
       "name email role"

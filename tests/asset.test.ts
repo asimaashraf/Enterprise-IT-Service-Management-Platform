@@ -1,4 +1,5 @@
 import request from "supertest";
+import mongoose from "mongoose";
 import app from "../src/app";
 import { connectDB } from "../src/config/db";
 import Asset from "../src/modules/asset/asset.model";
@@ -16,12 +17,17 @@ import {
 
 describe("Asset API", () => {
   let adminToken: string;
+  let adminId: string;
   let employeeToken: string;
   let employeeId: string;
   let organizationId: string;
   let otherOrganizationId: string;
   let otherAdminId: string;
   let otherAdminEmail: string;
+  let secondEmployeeId: string;
+  let secondEmployeeToken: string;
+  let inactiveEmployeeId: string;
+  let otherEmployeeId: string;
   const assetIds: string[] = [];
 
   beforeAll(async () => {
@@ -34,6 +40,7 @@ describe("Asset API", () => {
         password: TEST_ADMIN_PASSWORD,
       });
     adminToken = adminLogin.body.data.token;
+    adminId = adminLogin.body.data.user.id;
     organizationId = adminLogin.body.data.user.organizationId;
 
     const employeeLogin = await request(app)
@@ -61,6 +68,42 @@ describe("Asset API", () => {
       organizationId: otherOrganizationId,
     });
     otherAdminId = otherAdmin._id.toString();
+
+    const secondEmployee = await createTestUser({
+      name: "Second Asset Employee",
+      email: `second.asset.employee.${Date.now()}@example.com`,
+      password: "SecondEmployee123!",
+      role: "employee",
+      organizationId,
+    });
+    secondEmployeeId = secondEmployee._id.toString();
+
+    const secondEmployeeLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: secondEmployee.email,
+        password: "SecondEmployee123!",
+      });
+    secondEmployeeToken = secondEmployeeLogin.body.data.token;
+
+    const inactiveEmployee = await createTestUser({
+      name: "Inactive Asset Employee",
+      email: `inactive.asset.employee.${Date.now()}@example.com`,
+      password: "InactiveEmployee123!",
+      role: "employee",
+      organizationId,
+    });
+    inactiveEmployeeId = inactiveEmployee._id.toString();
+    await AuthUser.findByIdAndUpdate(inactiveEmployeeId, { isActive: false });
+
+    const otherEmployee = await createTestUser({
+      name: "Other Asset Employee",
+      email: `other.asset.employee.${Date.now()}@example.com`,
+      password: "OtherEmployee123!",
+      role: "employee",
+      organizationId: otherOrganizationId,
+    });
+    otherEmployeeId = otherEmployee._id.toString();
   });
 
   afterAll(async () => {
@@ -69,8 +112,14 @@ describe("Asset API", () => {
       await AssetLifecycle.deleteMany({ assetId: { $in: assetIds } });
       await Asset.deleteMany({ _id: { $in: assetIds } });
     }
-    if (otherAdminId) {
-      await AuthUser.deleteOne({ _id: otherAdminId });
+    const transientUserIds = [
+      otherAdminId,
+      secondEmployeeId,
+      inactiveEmployeeId,
+      otherEmployeeId,
+    ].filter(Boolean);
+    if (transientUserIds.length) {
+      await AuthUser.deleteMany({ _id: { $in: transientUserIds } });
     }
     if (otherOrganizationId) {
       await Organization.deleteOne({ _id: otherOrganizationId });
@@ -104,6 +153,111 @@ describe("Asset API", () => {
     );
   });
 
+  it("should scope employee asset and history reads to their own assignments", async () => {
+    const firstAssetResponse = await request(app)
+      .post("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        assetId: `AST-EMPLOYEE-ONE-${Date.now()}`,
+        name: "Employee One Laptop",
+        category: "Laptop",
+      });
+    const firstAssetId = firstAssetResponse.body.data._id;
+    assetIds.push(firstAssetId);
+
+    const secondAssetResponse = await request(app)
+      .post("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        assetId: `AST-EMPLOYEE-TWO-${Date.now()}`,
+        name: "Employee Two Laptop",
+        category: "Laptop",
+      });
+    const secondAssetId = secondAssetResponse.body.data._id;
+    assetIds.push(secondAssetId);
+
+    const unassignedAssetResponse = await request(app)
+      .post("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        assetId: `AST-EMPLOYEE-UNASSIGNED-${Date.now()}`,
+        name: "Unassigned Employee-Visible Check Laptop",
+        category: "Laptop",
+      });
+    const unassignedAssetId = unassignedAssetResponse.body.data._id;
+    assetIds.push(unassignedAssetId);
+
+    await request(app)
+      .post(`/api/v1/assets/${firstAssetId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ employeeId })
+      .expect(200);
+    await request(app)
+      .post(`/api/v1/assets/${secondAssetId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ employeeId: secondEmployeeId })
+      .expect(200);
+    await request(app)
+      .post(`/api/v1/assets/${firstAssetId}/maintenance`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        date: "2026-09-03T10:00:00.000Z",
+        type: "Inspection",
+        description: "Assigned asset inspection",
+      })
+      .expect(201);
+
+    const employeeList = await request(app)
+      .get("/api/v1/assets")
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(employeeList.status).toBe(200);
+    const employeeAssetIds = employeeList.body.data.map((asset: { _id: string }) => asset._id);
+    expect(employeeAssetIds).toContain(firstAssetId);
+    expect(employeeAssetIds).not.toContain(secondAssetId);
+    expect(employeeAssetIds).not.toContain(unassignedAssetId);
+
+    await request(app)
+      .get(`/api/v1/assets/${firstAssetId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(200);
+    await request(app)
+      .get(`/api/v1/assets/${secondAssetId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(404);
+    await request(app)
+      .get(`/api/v1/assets/${unassignedAssetId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(404);
+    await request(app)
+      .get(`/api/v1/assets/${firstAssetId}/maintenance`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(200);
+    await request(app)
+      .get(`/api/v1/assets/${secondAssetId}/maintenance`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(404);
+    await request(app)
+      .get(`/api/v1/assets/${firstAssetId}/lifecycle`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(200);
+    await request(app)
+      .get(`/api/v1/assets/${secondAssetId}/lifecycle`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .expect(404);
+
+    const adminList = await request(app)
+      .get("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(adminList.status).toBe(200);
+    const adminAssetIds = adminList.body.data.map((asset: { _id: string }) => asset._id);
+    expect(adminAssetIds).toContain(firstAssetId);
+    expect(adminAssetIds).toContain(secondAssetId);
+    await request(app)
+      .get(`/api/v1/assets/${secondAssetId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+  });
+
   it("should save and report active and expired warranty status", async () => {
     const createResponse = await request(app)
       .post("/api/v1/assets")
@@ -121,6 +275,12 @@ describe("Asset API", () => {
     const assetId = createResponse.body.data._id;
     assetIds.push(assetId);
     expect(createResponse.body.data.warrantyProvider).toBe("Example Vendor");
+
+    await request(app)
+      .post(`/api/v1/assets/${assetId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ employeeId })
+      .expect(200);
 
     const activeResponse = await request(app)
       .get(`/api/v1/assets/${assetId}`)
@@ -151,6 +311,24 @@ describe("Asset API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
+  });
+
+  it("should reject an Assigned asset at creation time", async () => {
+    const response = await request(app)
+      .post("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        assetId: `AST-INVALID-ASSIGNED-${Date.now()}`,
+        name: "Invalid Assigned Laptop",
+        category: "Laptop",
+        status: "Assigned",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe(
+      "An asset must be assigned through the assignment operation"
+    );
   });
 
   it("should accept every required asset category", async () => {
@@ -206,6 +384,12 @@ describe("Asset API", () => {
       "Quarterly hardware inspection"
     );
 
+    await request(app)
+      .post(`/api/v1/assets/${assetId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ employeeId })
+      .expect(200);
+
     const historyResponse = await request(app)
       .get(`/api/v1/assets/${assetId}/maintenance`)
       .set("Authorization", `Bearer ${employeeToken}`);
@@ -238,6 +422,11 @@ describe("Asset API", () => {
     const otherAssetId = assetResponse.body.data._id;
     assetIds.push(otherAssetId);
 
+    const assetResponseFromOtherTenant = await request(app)
+      .get(`/api/v1/assets/${otherAssetId}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(assetResponseFromOtherTenant.status).toBe(404);
+
     const response = await request(app)
       .get(`/api/v1/assets/${otherAssetId}/maintenance`)
       .set("Authorization", `Bearer ${employeeToken}`);
@@ -248,6 +437,48 @@ describe("Asset API", () => {
       .get(`/api/v1/assets/${otherAssetId}/lifecycle`)
       .set("Authorization", `Bearer ${employeeToken}`);
     expect(lifecycleResponse.status).toBe(404);
+  });
+
+  it("should accept only active same-tenant employees as assignment targets", async () => {
+    const assetResponse = await request(app)
+      .post("/api/v1/assets")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        assetId: `AST-ASSIGNMENT-TARGETS-${Date.now()}`,
+        name: "Assignment Target Laptop",
+        category: "Laptop",
+      });
+    const assetId = assetResponse.body.data._id;
+    assetIds.push(assetId);
+
+    const invalidTargetIds = [
+      adminId,
+      inactiveEmployeeId,
+      otherEmployeeId,
+      new mongoose.Types.ObjectId().toString(),
+      "not-an-object-id",
+    ];
+
+    for (const targetId of invalidTargetIds) {
+      const response = await request(app)
+        .post(`/api/v1/assets/${assetId}/assign`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ employeeId: targetId });
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+    }
+
+    const successResponse = await request(app)
+      .post(`/api/v1/assets/${assetId}/assign`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ employeeId: secondEmployeeId });
+    expect(successResponse.status).toBe(200);
+    expect(successResponse.body.data.assignedTo._id).toBe(secondEmployeeId);
+
+    const employeeResponse = await request(app)
+      .get(`/api/v1/assets/${assetId}`)
+      .set("Authorization", `Bearer ${secondEmployeeToken}`);
+    expect(employeeResponse.status).toBe(200);
   });
 
   it("should record lifecycle and assignment transitions for the tenant", async () => {
@@ -280,23 +511,22 @@ describe("Asset API", () => {
       .send({ employeeId });
     expect(assignResponse.status).toBe(200);
 
-    const unassignResponse = await request(app)
-      .post(`/api/v1/assets/${assetId}/unassign`)
-      .set("Authorization", `Bearer ${adminToken}`);
-    expect(unassignResponse.status).toBe(200);
-
     const historyResponse = await request(app)
       .get(`/api/v1/assets/${assetId}/lifecycle`)
       .set("Authorization", `Bearer ${employeeToken}`);
     expect(historyResponse.status).toBe(200);
-    expect(historyResponse.body.data).toHaveLength(4);
+    expect(historyResponse.body.data).toHaveLength(3);
     expect(historyResponse.body.data.map((entry: any) => entry.newStatus)).toEqual([
-      "Available",
       "Assigned",
       "Available",
       "Maintenance",
     ]);
     expect(historyResponse.body.data.every((entry: any) => entry.organizationId)).toBe(true);
+
+    const unassignResponse = await request(app)
+      .post(`/api/v1/assets/${assetId}/unassign`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(unassignResponse.status).toBe(200);
   });
 
   it("should enforce valid lifecycle transitions", async () => {

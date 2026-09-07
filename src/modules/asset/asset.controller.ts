@@ -67,7 +67,8 @@ export const getAssetsController = async (
     }
 
     const assets = await getAssetsByOrganization(
-      req.user.organizationId
+      req.user.organizationId,
+      { id: req.user.id, role: req.user.role }
     );
 
     res.status(200).json({
@@ -100,7 +101,8 @@ export const getAssetController = async (
 
     const asset = await getAssetById(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      { id: req.user.id, role: req.user.role }
     );
 
     if (!asset) {
@@ -337,7 +339,8 @@ export const getMaintenanceHistoryController = async (
 
     const records = await getMaintenanceHistory(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      { id: req.user.id, role: req.user.role }
     );
 
     return res.status(200).json({
@@ -367,7 +370,8 @@ export const getLifecycleHistoryController = async (
 
     const records = await getLifecycleHistory(
       req.params.id as string,
-      req.user.organizationId
+      req.user.organizationId,
+      { id: req.user.id, role: req.user.role }
     );
 
     return res.status(200).json({
