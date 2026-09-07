@@ -267,24 +267,11 @@ export const updateServiceRequestController = async (
           }
         | undefined;
 
-    const assignedTo =
-      existingRequest.assignedTo as
-        | {
-            _id?: unknown;
-          }
-        | undefined;
-
     const requestedById =
       requestedBy?._id?.toString();
 
-    const assignedToId =
-      assignedTo?._id?.toString();
-
     const isRequester =
       requestedById === req.user.id;
-
-    const isAssignedEmployee =
-      assignedToId === req.user.id;
 
     // ------------------------------------------
     // EMPLOYEE CANNOT ASSIGN
@@ -348,20 +335,18 @@ export const updateServiceRequestController = async (
     }
 
     // ------------------------------------------
-    // ASSIGNED EMPLOYEE CAN START / COMPLETE
+    // EMPLOYEES ARE REQUESTERS, NOT OPERATIONAL PROCESSORS
     // ------------------------------------------
 
     if (
       req.body.status === "In Progress" ||
       req.body.status === "Completed"
     ) {
-      if (!isAssignedEmployee) {
-        return res.status(403).json({
-          success: false,
-          message:
-            "You are not authorized to manage this service request",
-        });
-      }
+      return res.status(403).json({
+        success: false,
+        message:
+          "Employees cannot perform operational service request transitions",
+      });
     }
 
     // ------------------------------------------
@@ -369,8 +354,7 @@ export const updateServiceRequestController = async (
     // ------------------------------------------
 
     if (
-      !isRequester &&
-      !isAssignedEmployee
+      !isRequester
     ) {
       return res.status(403).json({
         success: false,

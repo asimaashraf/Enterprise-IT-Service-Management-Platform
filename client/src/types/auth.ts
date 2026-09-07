@@ -4,6 +4,13 @@
 
 export type UserRole = 'admin' | 'employee'
 
+export interface EligibleOperationalAssignee {
+  id: string
+  name: string
+  email: string
+  role: 'admin'
+}
+
 export interface AuthUser {
   id: string
   name: string

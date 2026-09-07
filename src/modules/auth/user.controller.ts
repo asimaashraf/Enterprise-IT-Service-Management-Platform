@@ -3,6 +3,7 @@ import { Response } from "express";
 import {
   createUser,
   getUsersByOrganization,
+  getEligibleOperationalAssignees,
   getUserById,
   updateUser,
   deactivateUser,
@@ -94,6 +95,33 @@ export const getUsersController = async (
     res.status(200).json({
       success: true,
       data: users.map(sanitize),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ==========================================
+// GET ELIGIBLE OPERATIONAL ASSIGNEES
+// ==========================================
+
+export const getEligibleOperationalAssigneesController = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    if (!ensureAdminInOrganization(req, res)) return;
+
+    const users = await getEligibleOperationalAssignees(
+      req.user!.organizationId
+    );
+
+    res.status(200).json({
+      success: true,
+      data: users,
     });
   } catch (error: any) {
     res.status(500).json({

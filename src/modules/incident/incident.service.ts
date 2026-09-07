@@ -13,6 +13,7 @@ import SLA from "../sla/sla.model";
 import {
   findMatchingAssignmentRule,
 } from "../incident-assignment/incidentAssignmentRule.service";
+import { isEligibleOperationalAssignee } from "../auth/user.service";
 
 import { notificationQueue } from "../../jobs/queues/notification.queue";
 import { queueNotificationEvent } from "../notification/notification.service";
@@ -381,7 +382,7 @@ export const createIncident = async (
 
       if (targetUserId) {
         // --------------------------------------
-        // Validate target employee
+        // Validate that the rule target remains eligible at assignment time.
         // --------------------------------------
 
         if (
@@ -393,37 +394,31 @@ export const createIncident = async (
             "Assignment rule target user ID is invalid."
           );
         } else {
-          const targetEmployee =
-            await authRepository.findOne({
-              _id: targetUserId,
-              organizationId:
-                organizationObjectId,
-              role: "employee",
-              isActive: true,
-            });
+          const isEligible = await isEligibleOperationalAssignee(
+            targetUserId,
+            data.organizationId
+          );
 
-          if (!targetEmployee) {
+          if (!isEligible) {
             console.warn(
-              "Assignment rule matched, but target employee is invalid."
+              "Assignment rule matched, but target user is no longer eligible."
             );
           } else {
             // Store ObjectId, not string.
 
-            assignedTo =
-              targetEmployee._id;
+            assignedTo = new mongoose.Types.ObjectId(targetUserId);
 
             console.log(
               "AUTOMATIC ASSIGNMENT SUCCESSFUL"
             );
 
             console.log(
-              "Assigned employee:",
-              targetEmployee.name
+              "Assigned support admin ID:",
+              assignedTo.toString()
             );
 
             console.log(
-              "Assigned employee ID:",
-              assignedTo.toString()
+              "Assigned support admin through an eligible assignment rule."
             );
           }
         }
@@ -627,8 +622,6 @@ export const updateIncident = async (
   // ASSIGNMENT VALIDATION
   // ==========================================
 
-  let assignedEmployee: any = null;
-
   if (
     data.assignedTo !== undefined &&
     data.assignedTo !== null &&
@@ -646,30 +639,14 @@ export const updateIncident = async (
       );
     }
 
-    // Find active employee inside
-    // the same organization.
+    const isEligible = await isEligibleOperationalAssignee(
+      data.assignedTo,
+      organizationId
+    );
 
-    assignedEmployee =
-      await authRepository.findOne({
-        _id: data.assignedTo,
-
-        organizationId,
-
-        isActive: true,
-      });
-
-    if (!assignedEmployee) {
+    if (!isEligible) {
       throw new Error(
-        "Assigned user does not belong to this organization"
-      );
-    }
-
-    if (
-      assignedEmployee.role !==
-      "employee"
-    ) {
-      throw new Error(
-        "Incidents can only be assigned to employees"
+        "Assigned user must be an eligible operational assignee"
       );
     }
 
@@ -677,7 +654,7 @@ export const updateIncident = async (
     // Store ObjectId, not string.
 
     updateData.assignedTo =
-      assignedEmployee._id;
+      new mongoose.Types.ObjectId(data.assignedTo);
   }
 
   // ==========================================
@@ -800,8 +777,8 @@ export const updateIncident = async (
   // ==========================================
 
   const newAssignedTo =
-    assignedEmployee
-      ? assignedEmployee._id.toString()
+    updateData.assignedTo
+      ? updateData.assignedTo.toString()
       : undefined;
 
   const isNewAssignment =
@@ -815,10 +792,10 @@ export const updateIncident = async (
 
   if (
     isNewAssignment &&
-    assignedEmployee
+    newAssignedTo
   ) {
     await queueIncidentAssignmentNotification(
-      assignedEmployee._id.toString(),
+      newAssignedTo,
 
       organizationId,
 

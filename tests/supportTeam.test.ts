@@ -1,446 +1,217 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import request from "supertest";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import app from "../src/app";
-import SupportTeam from "../src/modules/support-team/supportTeam.model";
 
-jest.setTimeout(30000);
+import app from "../src/app";
+import { connectDB } from "../src/config/db";
+import AuthUser from "../src/modules/auth/auth.model";
+import Organization from "../src/modules/organization/organization.model";
+import SupportTeam from "../src/modules/support-team/supportTeam.model";
+import {
+  createTestUser,
+  TEST_ADMIN_EMAIL,
+  TEST_ADMIN_PASSWORD,
+  TEST_EMPLOYEE_EMAIL,
+  TEST_EMPLOYEE_PASSWORD,
+} from "./test-fixtures";
 
 describe("Support Team API", () => {
-  const organizationId = "6a856a1ea3cc73b2aa648304";
+  let adminToken: string;
+  let employeeToken: string;
+  let organizationId: string;
+  let employeeId: string;
+  let activeAdminId: string;
+  let inactiveAdminId: string;
+  let otherOrganizationId: string;
+  let otherAdminId: string;
+  let createdTeamId: string;
+  let otherTeamId: string;
+  const createdUserIds: string[] = [];
 
-  let createdTeamId: string | undefined;
-
-  // ==========================================
-  // DATABASE SETUP
-  // ==========================================
+  const uniqueName = (name: string) => `${name} ${Date.now()}`;
 
   beforeAll(async () => {
-    await mongoose.connect(
-      process.env.MONGO_URI as string
-    );
+    await connectDB();
+
+    const adminLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: TEST_ADMIN_EMAIL, password: TEST_ADMIN_PASSWORD });
+    expect(adminLogin.status).toBe(200);
+    adminToken = adminLogin.body.data.token;
+    organizationId = adminLogin.body.data.user.organizationId;
+
+    const employeeLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: TEST_EMPLOYEE_EMAIL, password: TEST_EMPLOYEE_PASSWORD });
+    expect(employeeLogin.status).toBe(200);
+    employeeToken = employeeLogin.body.data.token;
+    employeeId = employeeLogin.body.data.user.id;
+
+    const activeAdmin = await createTestUser({
+      name: "Support Team Active Admin",
+      email: `support-team-admin-${Date.now()}@example.com`,
+      password: "SupportTeamAdmin123!",
+      role: "admin",
+      organizationId,
+    });
+    activeAdminId = activeAdmin._id.toString();
+    createdUserIds.push(activeAdminId);
+
+    const inactiveAdmin = await createTestUser({
+      name: "Support Team Inactive Admin",
+      email: `support-team-inactive-${Date.now()}@example.com`,
+      password: "SupportTeamInactive123!",
+      role: "admin",
+      organizationId,
+    });
+    inactiveAdminId = inactiveAdmin._id.toString();
+    createdUserIds.push(inactiveAdminId);
+    await AuthUser.findByIdAndUpdate(inactiveAdminId, { isActive: false });
+
+    const otherOrganization = await Organization.create({
+      name: uniqueName("Other Support Team Organization"),
+      slug: `other-support-team-${Date.now()}`,
+      isActive: true,
+    });
+    otherOrganizationId = otherOrganization._id.toString();
+
+    const otherAdmin = await createTestUser({
+      name: "Other Support Team Admin",
+      email: `other-support-team-admin-${Date.now()}@example.com`,
+      password: "OtherSupportTeamAdmin123!",
+      role: "admin",
+      organizationId: otherOrganizationId,
+    });
+    otherAdminId = otherAdmin._id.toString();
+    createdUserIds.push(otherAdminId);
+
+    const otherTeam = await SupportTeam.create({
+      name: uniqueName("Other Tenant Support Team"),
+      organizationId: otherOrganizationId,
+      members: [otherAdminId],
+    });
+    otherTeamId = otherTeam._id.toString();
   });
 
   afterAll(async () => {
-    if (createdTeamId) {
-      await SupportTeam.findByIdAndDelete(
-        createdTeamId
-      );
-    }
-
-    await mongoose.disconnect();
+    await SupportTeam.deleteMany({
+      _id: { $in: [createdTeamId, otherTeamId].filter(Boolean) },
+    });
+    await AuthUser.deleteMany({ _id: { $in: createdUserIds } });
+    await Organization.deleteOne({ _id: otherOrganizationId });
   });
 
-  // ==========================================
-  // EMPLOYEE TOKEN
-  // ==========================================
+  it("allows an admin to create a team with an active same-tenant admin member", async () => {
+    const response = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Operations Support"),
+        description: "Operational support team",
+        members: [activeAdminId],
+      });
 
-  const employeeToken = jwt.sign(
-    {
-      id: "test-employee-id",
-      email: "employee@test.com",
-      role: "employee",
-      organizationId,
-    },
-    process.env.JWT_SECRET as string,
-    {
-      expiresIn: "1h",
-    }
-  );
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.members).toEqual([activeAdminId]);
+    createdTeamId = response.body.data._id;
+  });
 
-  // ==========================================
-  // ADMIN TOKEN
-  // ==========================================
+  it("rejects a same-tenant employee as a support team member", async () => {
+    const response = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ name: uniqueName("Employee Member Team"), members: [employeeId] });
 
-  const adminToken = jwt.sign(
-    {
-      id: "test-admin-id",
-      email: "admin@test.com",
-      role: "admin",
-      organizationId,
-    },
-    process.env.JWT_SECRET as string,
-    {
-      expiresIn: "1h",
-    }
-  );
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Support team members must be active admins in this organization"
+    );
+  });
 
-  // ==========================================
-  // UNAUTHENTICATED GET ALL
-  // ==========================================
+  it("rejects an admin from another tenant as a support team member", async () => {
+    const response = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ name: uniqueName("Cross Tenant Member Team"), members: [otherAdminId] });
 
-  it(
-    "should reject unauthenticated requests to get support teams",
-    async () => {
-      const response = await request(app)
-        .get("/api/v1/support-teams");
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Support team members must be active admins in this organization"
+    );
+  });
 
-      expect(response.status).toBe(401);
+  it("rejects an inactive admin as a support team member", async () => {
+    const response = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ name: uniqueName("Inactive Member Team"), members: [inactiveAdminId] });
 
-      expect(response.body).toHaveProperty(
-        "success",
-        false
-      );
-    }
-  );
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Support team members must be active admins in this organization"
+    );
+  });
 
-  // ==========================================
-  // UNAUTHENTICATED CREATE
-  // ==========================================
+  it("rejects a nonexistent user as a support team member", async () => {
+    const response = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Missing Member Team"),
+        members: [new mongoose.Types.ObjectId().toString()],
+      });
 
-  it(
-    "should reject unauthenticated support team creation",
-    async () => {
-      const response = await request(app)
-        .post("/api/v1/support-teams")
-        .send({
-          name: "Test Support Team",
-          description: "Test support team",
-        });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Support team members must be active admins in this organization"
+    );
+  });
 
-      expect(response.status).toBe(401);
+  it("uses the same membership validation when updating a team", async () => {
+    const response = await request(app)
+      .put(`/api/v1/support-teams/${createdTeamId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ members: [employeeId] });
 
-      expect(response.body).toHaveProperty(
-        "success",
-        false
-      );
-    }
-  );
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Support team members must be active admins in this organization"
+    );
+  });
 
-  // ==========================================
-  // EMPLOYEE CREATE RBAC
-  // ==========================================
+  it("prevents employees from creating, updating, and deleting support teams", async () => {
+    const createResponse = await request(app)
+      .post("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ name: uniqueName("Employee Team") });
+    const updateResponse = await request(app)
+      .put(`/api/v1/support-teams/${createdTeamId}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ description: "Unauthorized update" });
+    const deleteResponse = await request(app)
+      .delete(`/api/v1/support-teams/${createdTeamId}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
 
-  it(
-    "should prevent employees from creating support teams",
-    async () => {
-      const response = await request(app)
-        .post("/api/v1/support-teams")
-        .set(
-          "Authorization",
-          `Bearer ${employeeToken}`
-        )
-        .send({
-          name: "Employee Test Support Team",
-          description: "Should not be created",
-        });
-
+    for (const response of [createResponse, updateResponse, deleteResponse]) {
       expect(response.status).toBe(403);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        false
-      );
-
       expect(response.body.message).toBe(
         "You are not authorized to perform this action"
       );
     }
-  );
+  });
 
-  // ==========================================
-  // ADMIN CREATE
-  // ==========================================
+  it("keeps support team reads tenant-scoped while allowing authenticated employees to read their tenant", async () => {
+    const ownResponse = await request(app)
+      .get("/api/v1/support-teams")
+      .set("Authorization", `Bearer ${employeeToken}`);
 
-  it(
-    "should allow an admin to create a support team",
-    async () => {
-      const response = await request(app)
-        .post("/api/v1/support-teams")
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        )
-        .send({
-          name: `Automated Test Support Team ${Date.now()}`,
-          description: "Created by automated test",
-        });
+    expect(ownResponse.status).toBe(200);
+    expect(ownResponse.body.data.some((team: { _id: string }) => team._id === createdTeamId)).toBe(true);
+    expect(ownResponse.body.data.some((team: { _id: string }) => team._id === otherTeamId)).toBe(false);
 
-      console.log(
-        "ADMIN CREATE RESPONSE:",
-        response.body
-      );
-
-      expect(response.status).toBe(201);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body).toHaveProperty(
-        "message",
-        "Support team created successfully"
-      );
-
-      expect(response.body.data).toHaveProperty(
-        "name"
-      );
-
-      expect(response.body.data).toHaveProperty(
-        "organizationId",
-        organizationId
-      );
-
-      createdTeamId =
-        response.body.data._id;
-    }
-  );
-
-  // ==========================================
-  // EMPLOYEE GET ALL
-  // ==========================================
-
-  it(
-    "should allow employees to get support teams",
-    async () => {
-      const response = await request(app)
-        .get("/api/v1/support-teams")
-        .set(
-          "Authorization",
-          `Bearer ${employeeToken}`
-        );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body).toHaveProperty(
-        "data"
-      );
-    }
-  );
-
-  // ==========================================
-  // ADMIN GET ALL
-  // ==========================================
-
-  it(
-    "should allow admins to get support teams",
-    async () => {
-      const response = await request(app)
-        .get("/api/v1/support-teams")
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body).toHaveProperty(
-        "data"
-      );
-    }
-  );
-
-  // ==========================================
-  // EMPLOYEE GET BY ID
-  // ==========================================
-
-  it(
-    "should allow employees to get a support team by ID",
-    async () => {
-      const response = await request(app)
-        .get(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${employeeToken}`
-        );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body.data).toHaveProperty(
-        "_id",
-        createdTeamId
-      );
-    }
-  );
-
-  // ==========================================
-  // ADMIN GET BY ID
-  // ==========================================
-
-  it(
-    "should allow admins to get a support team by ID",
-    async () => {
-      const response = await request(app)
-        .get(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body.data).toHaveProperty(
-        "_id",
-        createdTeamId
-      );
-    }
-  );
-
-  // ==========================================
-  // EMPLOYEE UPDATE RBAC
-  // ==========================================
-
-  it(
-    "should prevent employees from updating support teams",
-    async () => {
-      const response = await request(app)
-        .put(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${employeeToken}`
-        )
-        .send({
-          description: "Employee should not update this",
-        });
-
-      expect(response.status).toBe(403);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        false
-      );
-
-      expect(response.body.message).toBe(
-        "You are not authorized to perform this action"
-      );
-    }
-  );
-
-  // ==========================================
-  // ADMIN UPDATE
-  // ==========================================
-
-  it(
-    "should allow an admin to update a support team",
-    async () => {
-      const response = await request(app)
-        .put(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        )
-        .send({
-          description: "Updated by automated test",
-        });
-
-      console.log(
-        "ADMIN UPDATE RESPONSE:",
-        response.body
-      );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body.data).toHaveProperty(
-        "_id",
-        createdTeamId
-      );
-
-      expect(
-        response.body.data.description
-      ).toBe("Updated by automated test");
-    }
-  );
-
-  // ==========================================
-  // EMPLOYEE DELETE RBAC
-  // ==========================================
-
-  it(
-    "should prevent employees from deleting support teams",
-    async () => {
-      const response = await request(app)
-        .delete(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${employeeToken}`
-        );
-
-      expect(response.status).toBe(403);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        false
-      );
-
-      expect(response.body.message).toBe(
-        "You are not authorized to perform this action"
-      );
-    }
-  );
-
-  // ==========================================
-  // ADMIN DELETE
-  // ==========================================
-
-  it(
-    "should allow an admin to delete a support team",
-    async () => {
-      const response = await request(app)
-        .delete(
-          `/api/v1/support-teams/${createdTeamId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        );
-
-      console.log(
-        "ADMIN DELETE RESPONSE:",
-        response.body
-      );
-
-      expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(response.body).toHaveProperty(
-        "message",
-        "Support team deleted successfully"
-      );
-
-      createdTeamId = undefined;
-    }
-  );
+    const crossTenantResponse = await request(app)
+      .get(`/api/v1/support-teams/${otherTeamId}`)
+      .set("Authorization", `Bearer ${employeeToken}`);
+    expect(crossTenantResponse.status).toBe(404);
+  });
 });

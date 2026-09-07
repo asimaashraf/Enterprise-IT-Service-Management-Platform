@@ -278,18 +278,6 @@ export const updateIncidentController = async (
     // EMPLOYEE AUTHORIZATION
     // ==========================================
 
-    const assignedTo = existingIncident.assignedTo as
-      | {
-          _id?: unknown;
-        }
-      | undefined;
-
-    const assignedUserId =
-      assignedTo?._id?.toString();
-
-    const isAssignedEmployee =
-      assignedUserId === req.user.id;
-
     // ==========================================
     // EMPLOYEE CANNOT ASSIGN / REASSIGN
     // ==========================================
@@ -303,60 +291,20 @@ export const updateIncidentController = async (
     }
 
     // ==========================================
-    // EMPLOYEE MUST BE ASSIGNED
+    // EMPLOYEES ARE REQUESTERS, NOT OPERATIONAL PROCESSORS
     // ==========================================
 
-    if (!isAssignedEmployee) {
+    if (req.body.status !== undefined) {
       return res.status(403).json({
         success: false,
         message:
-          "You are not authorized to manage this incident",
+          "Employees cannot perform incident workflow transitions",
       });
     }
 
-    // ==========================================
-    // EMPLOYEE STATUS PERMISSIONS
-    // ==========================================
-
-    const allowedEmployeeStatuses = [
-      "In Progress",
-      "Resolved",
-    ];
-
-    if (
-      req.body.status &&
-      !allowedEmployeeStatuses.includes(
-        req.body.status
-      )
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Employees cannot set this incident status",
-      });
-    }
-
-    // ==========================================
-    // UPDATE INCIDENT
-    // ==========================================
-
-    const incident = await updateIncident(
-      req.params.id as string,
-      req.user.organizationId,
-      req.body
-    );
-
-    if (!incident) {
-      return res.status(404).json({
-        success: false,
-        message: "Incident not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Incident updated successfully",
-      data: incident,
+    return res.status(403).json({
+      success: false,
+      message: "Employees cannot manage incident workflows",
     });
   } catch (error: any) {
     return res.status(400).json({

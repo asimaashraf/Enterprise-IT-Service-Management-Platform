@@ -9,6 +9,7 @@ import app from "../src/app";
 import AuthUser from "../src/modules/auth/auth.model";
 import Organization from "../src/modules/organization/organization.model";
 import ServiceRequest from "../src/modules/service-request/serviceRequest.model";
+import SupportTeam from "../src/modules/support-team/supportTeam.model";
 
 // ==========================================
 // JEST CONFIG
@@ -26,13 +27,19 @@ describe("Service Request Management API", () => {
   let adminToken: string;
   let employeeToken: string;
   let secondEmployeeToken: string;
+  let supportAdminToken: string;
 
   let adminId: string;
   let employeeId: string;
   let secondEmployeeId: string;
+  let supportAdminId: string;
+  let unassignedAdminId: string;
+  let inactiveAdminId: string;
+  let otherAdminId: string;
+  let otherOrganizationId: string;
+  let supportTeamId: string;
 
   let serviceRequestId: string;
-  let requestId: string;
 
   // ==========================================
   // SETUP
@@ -98,6 +105,7 @@ describe("Service Request Management API", () => {
       role: "admin",
       organizationId,
       isActive: true,
+      isEmailVerified: true,
     });
 
     adminId = admin._id.toString();
@@ -113,6 +121,7 @@ describe("Service Request Management API", () => {
       role: "employee",
       organizationId,
       isActive: true,
+      isEmailVerified: true,
     });
 
     employeeId = employee._id.toString();
@@ -128,9 +137,68 @@ describe("Service Request Management API", () => {
       role: "employee",
       organizationId,
       isActive: true,
+      isEmailVerified: true,
     });
 
     secondEmployeeId = secondEmployee._id.toString();
+
+    const supportAdmin = await AuthUser.create({
+      name: "Service Request Support Admin",
+      email: `service.support.admin.${timestamp}@example.com`,
+      password,
+      role: "admin",
+      organizationId,
+      isActive: true,
+      isEmailVerified: true,
+    });
+    supportAdminId = supportAdmin._id.toString();
+
+    const unassignedAdmin = await AuthUser.create({
+      name: "Service Request Unassigned Admin",
+      email: `service.unassigned.admin.${timestamp}@example.com`,
+      password,
+      role: "admin",
+      organizationId,
+      isActive: true,
+      isEmailVerified: true,
+    });
+    unassignedAdminId = unassignedAdmin._id.toString();
+
+    const inactiveAdmin = await AuthUser.create({
+      name: "Service Request Inactive Admin",
+      email: `service.inactive.admin.${timestamp}@example.com`,
+      password,
+      role: "admin",
+      organizationId,
+      isActive: false,
+      isEmailVerified: true,
+    });
+    inactiveAdminId = inactiveAdmin._id.toString();
+
+    const otherOrganization = await Organization.create({
+      name: `Service Request Other Organization ${timestamp}`,
+      slug: `service-request-other-${timestamp}`,
+      description: "Cross-tenant service request assignment fixture",
+    });
+    otherOrganizationId = otherOrganization._id.toString();
+    const otherAdmin = await AuthUser.create({
+      name: "Service Request Other Admin",
+      email: `service.other.admin.${timestamp}@example.com`,
+      password,
+      role: "admin",
+      organizationId: otherOrganizationId,
+      isActive: true,
+      isEmailVerified: true,
+    });
+    otherAdminId = otherAdmin._id.toString();
+
+    const supportTeam = await SupportTeam.create({
+      name: `Service Request Support Team ${timestamp}`,
+      organizationId,
+      members: [supportAdminId],
+      isActive: true,
+    });
+    supportTeamId = supportTeam._id.toString();
 
     // ==========================================
     // LOGIN ADMIN
@@ -240,6 +308,15 @@ describe("Service Request Management API", () => {
 
     expect(secondEmployeeToken).toBeTruthy();
 
+    const supportAdminLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({
+        email: supportAdmin.email,
+        password: "TestPassword123",
+      });
+    expect(supportAdminLogin.status).toBe(200);
+    supportAdminToken = supportAdminLogin.body.data.token;
+
     console.log(
       "Service Request test setup complete."
     );
@@ -260,6 +337,9 @@ describe("Service Request Management API", () => {
       // ----------------------------------------
 
       if (organizationId) {
+        if (supportTeamId) {
+          await SupportTeam.deleteOne({ _id: supportTeamId });
+        }
         await ServiceRequest.deleteMany({
           organizationId,
         });
@@ -279,6 +359,9 @@ describe("Service Request Management API", () => {
         await Organization.deleteOne({
           _id: organizationId,
         });
+
+        await AuthUser.deleteMany({ organizationId: otherOrganizationId });
+        await Organization.deleteOne({ _id: otherOrganizationId });
       }
 
       console.log(
@@ -334,8 +417,6 @@ describe("Service Request Management API", () => {
   it(
     "should allow an employee to create a service request",
     async () => {
-      requestId = `SR-EMP-${Date.now()}`;
-
       const response = await request(app)
         .post("/api/v1/service-requests")
         .set(
@@ -343,7 +424,6 @@ describe("Service Request Management API", () => {
           `Bearer ${employeeToken}`
         )
         .send({
-          requestId,
           title: "VPN Access Request",
           description:
             "Employee requires VPN access for remote work.",
@@ -363,9 +443,8 @@ describe("Service Request Management API", () => {
         true
       );
 
-      expect(response.body.data).toHaveProperty(
-        "requestId",
-        requestId
+      expect(response.body.data.requestId).toMatch(
+        /^SR-\d{8}-\d{4}$/
       );
 
       expect(response.body.data).toHaveProperty(
@@ -660,39 +739,38 @@ describe("Service Request Management API", () => {
   // ==========================================
 
   it(
-    "should allow an admin to assign a service request to an employee",
+    "should reject employee, unassigned admin, inactive admin, and cross-tenant admin assignees",
+    async () => {
+      for (const targetId of [
+        employeeId,
+        unassignedAdminId,
+        inactiveAdminId,
+        otherAdminId,
+      ]) {
+        const response = await request(app)
+          .put(`/api/v1/service-requests/${serviceRequestId}`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ assignedTo: targetId });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBe(
+          "Assigned user must be an eligible operational assignee"
+        );
+      }
+    }
+  );
+
+  it(
+    "should allow an admin to assign a service request to an eligible support admin",
     async () => {
       const response = await request(app)
-        .put(
-          `/api/v1/service-requests/${serviceRequestId}`
-        )
-        .set(
-          "Authorization",
-          `Bearer ${adminToken}`
-        )
-        .send({
-          assignedTo: employeeId,
-        });
-
-      console.log(
-        "ADMIN ASSIGN RESPONSE:",
-        response.body
-      );
+        .put(`/api/v1/service-requests/${serviceRequestId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ assignedTo: supportAdminId });
 
       expect(response.status).toBe(200);
-
-      expect(response.body).toHaveProperty(
-        "success",
-        true
-      );
-
-      expect(
-        response.body.data.assignedTo
-      ).toBeTruthy();
-
-      expect(
-        response.body.data.assignedTo._id
-      ).toBe(employeeId);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.assignedTo._id).toBe(supportAdminId);
     }
   );
 
@@ -782,7 +860,7 @@ describe("Service Request Management API", () => {
   // ==========================================
 
   it(
-    "should allow the assigned employee to move an approved request to In Progress",
+    "should prevent an employee from starting a request as an operational worker",
     async () => {
       const response = await request(app)
         .put(
@@ -801,22 +879,10 @@ describe("Service Request Management API", () => {
         response.body
       );
 
-      expect(response.status).toBe(200);
-
-      expect(
-        response.body.data
-      ).toHaveProperty(
-        "status",
-        "In Progress"
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe(
+        "Employees cannot perform operational service request transitions"
       );
-
-      expect(
-        response.body.data.assignedTo
-      ).toBeTruthy();
-
-      expect(
-        response.body.data.assignedTo._id
-      ).toBe(employeeId);
     }
   );
 
@@ -825,7 +891,7 @@ describe("Service Request Management API", () => {
   // ==========================================
 
   it(
-    "should allow the assigned employee to complete the request",
+    "should prevent an employee from completing a request as an operational worker",
     async () => {
       const response = await request(app)
         .put(
@@ -844,20 +910,54 @@ describe("Service Request Management API", () => {
         response.body
       );
 
-      expect(response.status).toBe(200);
-
-      expect(
-        response.body.data
-      ).toHaveProperty(
-        "status",
-        "Completed"
+      expect(response.status).toBe(403);
+      expect(response.body.message).toBe(
+        "Employees cannot perform operational service request transitions"
       );
-
-      expect(
-        response.body.data.completedAt
-      ).toBeTruthy();
     }
   );
+
+  it(
+    "should allow the assigned support admin to complete the approved request workflow",
+    async () => {
+      const startResponse = await request(app)
+        .put(`/api/v1/service-requests/${serviceRequestId}`)
+        .set("Authorization", `Bearer ${supportAdminToken}`)
+        .send({ status: "In Progress" });
+
+      expect(startResponse.status).toBe(200);
+      expect(startResponse.body.data.status).toBe("In Progress");
+
+      const completeResponse = await request(app)
+        .put(`/api/v1/service-requests/${serviceRequestId}`)
+        .set("Authorization", `Bearer ${supportAdminToken}`)
+        .send({ status: "Completed" });
+
+      expect(completeResponse.status).toBe(200);
+      expect(completeResponse.body.data.status).toBe("Completed");
+      expect(completeResponse.body.data.completedAt).toBeTruthy();
+    }
+  );
+
+  it("preserves requester cancellation for a request that is still cancellable", async () => {
+    const createResponse = await request(app)
+      .post("/api/v1/service-requests")
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({
+        title: "Cancellable VPN Request",
+        description: "This requester-safe action must remain available.",
+        type: "VPN Access",
+      });
+    expect(createResponse.status).toBe(201);
+
+    const cancelResponse = await request(app)
+      .put(`/api/v1/service-requests/${createResponse.body.data._id}`)
+      .set("Authorization", `Bearer ${employeeToken}`)
+      .send({ status: "Cancelled" });
+
+    expect(cancelResponse.status).toBe(200);
+    expect(cancelResponse.body.data.status).toBe("Cancelled");
+  });
 
   // ==========================================
   // DELETE

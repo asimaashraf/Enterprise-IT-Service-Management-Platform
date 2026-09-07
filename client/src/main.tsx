@@ -29,6 +29,7 @@ import { KnowledgeBasePage } from '@/pages/KnowledgeBasePage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { UserManagementPage } from '@/pages/UserManagementPage'
+import { SupportTeamsPage } from '@/pages/SupportTeamsPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage'
@@ -126,6 +127,14 @@ if (!rootElement.innerHTML) {
                       element={
                         <RoleGuard allowedRoles={['admin']}>
                           <UserManagementPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="/support-teams"
+                      element={
+                        <RoleGuard allowedRoles={['admin']}>
+                          <SupportTeamsPage />
                         </RoleGuard>
                       }
                     />

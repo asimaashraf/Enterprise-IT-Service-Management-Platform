@@ -1,4 +1,14 @@
+import mongoose from "mongoose";
+
 import AuthUser, { IAuthUser } from "./auth.model";
+import SupportTeam from "../support-team/supportTeam.model";
+
+export interface IEligibleOperationalAssignee {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  email: string;
+  role: "admin";
+}
 
 export const authRepository = {
   countUsers: async (): Promise<number> => {
@@ -117,6 +127,56 @@ export const authRepository = {
       role: "admin",
       isActive: true,
     }).select("_id name email role");
+  },
+
+  // ==========================================
+  // FIND ELIGIBLE OPERATIONAL ASSIGNEES
+  // Active same-tenant admins who belong to at least one active
+  // same-tenant support team. The lookup avoids per-user team queries.
+  // ==========================================
+
+  findEligibleOperationalAssignees: async (
+    organizationId: string,
+    userId?: string
+  ): Promise<IEligibleOperationalAssignee[]> => {
+    const organizationObjectId = new mongoose.Types.ObjectId(organizationId);
+    const match: Record<string, unknown> = {
+      organizationId: organizationObjectId,
+      role: "admin",
+      isActive: true,
+    };
+
+    if (userId) {
+      match._id = new mongoose.Types.ObjectId(userId);
+    }
+
+    return AuthUser.aggregate<IEligibleOperationalAssignee>([
+      { $match: match },
+      {
+        $lookup: {
+          from: SupportTeam.collection.name,
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$organizationId", organizationObjectId] },
+                    { $eq: ["$isActive", true] },
+                    { $in: ["$$userId", "$members"] },
+                  ],
+                },
+              },
+            },
+            { $limit: 1 },
+          ],
+          as: "supportTeams",
+        },
+      },
+      { $match: { "supportTeams.0": { $exists: true } } },
+      { $project: { _id: 1, name: 1, email: 1, role: 1 } },
+      { $sort: { name: 1, email: 1 } },
+    ]);
   },
 
   // ==========================================

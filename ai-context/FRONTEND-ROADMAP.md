@@ -43,6 +43,82 @@ The `RoleGuard` controls navigation elements, pages, and UI actions based on the
 
 Real authorization must always be enforced again by the backend. Hiding a button or route in the frontend must never be treated as a security boundary.
 
+## RBAC and Assignment Model
+
+### Authentication Roles
+
+The platform uses two primary authentication roles:
+
+- ADMIN
+- EMPLOYEE
+
+### EMPLOYEE
+
+EMPLOYEE represents a normal organization end user/requester.
+
+An EMPLOYEE may:
+
+- Create incidents
+- Create service requests
+- View and track records they are authorized to access
+- View their own request/incident status
+- Search and read Knowledge Base content
+- Receive relevant notifications
+
+An EMPLOYEE must not:
+
+- Be treated as an IT technician
+- Be selected as an incident/service-request assignee
+- Assign work to other users
+- Perform administrative workflow actions
+- Manage users, support teams, organization settings, or global SLA policies
+
+### ADMIN
+
+ADMIN represents the tenant's IT operations/support side.
+
+An ADMIN may:
+
+- Manage incidents and service requests
+- Assign eligible support work
+- Perform allowed workflow transitions
+- Manage assets, changes, SLA configuration, knowledge content, and tenant administration
+- Manage departments and support teams where authorized
+
+### Support Teams
+
+Operational support must be modeled through Support Teams.
+
+Examples:
+
+- Service Desk
+- Hardware Support
+- Network Support
+- Application Support
+
+ADMIN users may belong to one or more support teams.
+
+### Assignment Rule
+
+Incidents and service requests may only be assigned to:
+
+- An eligible ADMIN/support user, or
+- A valid support team when team-level assignment is supported
+
+EMPLOYEE users must never be valid assignees.
+
+### Authorization Rule
+
+Frontend role filtering exists for UX only.
+
+The backend is the authoritative security boundary and must reject:
+
+- Unauthorized assignments
+- Invalid assignees
+- Unauthorized workflow actions
+- Invalid status transitions
+- Cross-tenant access
+
 ## Server State vs Client State
 
 Keep server state and client-only state separate.
@@ -316,10 +392,23 @@ Incident Management will serve as the reference/template architecture for the mo
   - Resolution tracking
 - [x] Add PDF export action
 - [x] Apply role-based UI controls for employee and admin actions
+- [ ] Restrict incident assignment UI to eligible ADMIN/support users or support teams
+- [ ] Exclude EMPLOYEE users from incident assignee options
+- [ ] Show only incident workflow actions allowed for the authenticated user's role
+- [ ] Enforce valid incident status transitions in the UI based on backend rules
+- [ ] Verify backend rejection of invalid incident assignees
+- [ ] Verify backend rejection of unauthorized incident workflow transitions
 
 ## Exit Criteria
 
-Phase 4 is complete when the complete Incident CRUD and status workflow works against the real backend API.
+Phase 4 is complete when:
+
+- EMPLOYEE users can create and track incidents they are authorized to access
+- ADMIN/support users can process eligible assigned incidents
+- EMPLOYEE users cannot be operational assignees
+- Invalid assignments are rejected by the backend
+- Unauthorized workflow transitions are rejected by the backend
+- Frontend role controls match backend authorization behavior
 
 ---
 
@@ -345,10 +434,58 @@ Implement the Service Request module by reusing the patterns established in Inci
 - [ ] Build Service Request Detail page
 - [ ] Implement status tracking UI
 - [ ] Connect all supported workflows to the real backend
+- [ ] Restrict service-request assignment UI to eligible ADMIN/support users or support teams
+- [ ] Exclude EMPLOYEE users from service-request assignee options
+- [ ] Show only service-request workflow actions allowed for the authenticated user's role
+- [ ] Enforce valid service-request status transitions in the UI based on backend rules
+- [ ] Verify backend rejection of invalid service-request assignees
+- [ ] Verify backend rejection of unauthorized service-request workflow transitions
 
 ## Exit Criteria
 
-Service Request creation, listing, detail viewing, and status tracking work correctly with the backend.
+Phase 5 is complete when:
+
+- EMPLOYEE users can create and track service requests they are authorized to access
+- ADMIN/support users can process eligible assigned service requests
+- EMPLOYEE users cannot be operational assignees
+- Invalid assignments are rejected by the backend
+- Unauthorized workflow transitions are rejected by the backend
+- Frontend role controls match backend authorization behavior
+
+---
+
+# Phase 5A — Organization & Support Assignment Foundation
+
+## Goal
+
+Establish the minimum organization/support structure required for professional Incident and Service Request assignment before later modules are developed.
+
+## Tasks
+
+- [ ] Verify/integrate the Department foundation required by the existing backend architecture
+- [ ] Verify/integrate the Support Team foundation
+- [ ] Support ADMIN membership in Support Teams
+- [ ] Define/display eligible operational assignees from ADMIN/support membership
+- [ ] Ensure EMPLOYEE users are never operational assignees
+- [ ] Support the minimum admin UI necessary to manage support-team membership if the backend already supports it
+- [ ] Integrate eligible assignee selection with Incident Management
+- [ ] Integrate eligible assignee selection with Service Request Management
+- [ ] Keep frontend filtering as UX only
+- [ ] Require backend validation for assignment eligibility and tenant isolation
+- [ ] Verify cross-tenant users cannot become assignment targets
+- [ ] Add/verify frontend integration behavior for invalid assignment responses
+
+## Exit Criteria
+
+Phase 5A is complete when:
+
+- Department/Support Team foundation required for assignment is usable
+- ADMIN/support membership can determine eligible assignees
+- EMPLOYEE users cannot appear as operational assignees
+- Incident assignment follows the shared assignment contract
+- Service Request assignment follows the shared assignment contract
+- Backend remains authoritative for assignment eligibility and tenant isolation
+- Existing Phase 4 and Phase 5 workflows remain functional
 
 ---
 
@@ -551,6 +688,8 @@ Authenticated users receive appropriate real-time notifications and can view not
 ## Goal
 
 Provide administrative interfaces for tenant-scoped organization management.
+
+Phase 13 builds on the Phase 5A organization/support foundation and completes and polishes the full administrative management experience.
 
 ## Tasks
 

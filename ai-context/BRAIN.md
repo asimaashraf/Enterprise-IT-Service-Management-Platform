@@ -5,7 +5,7 @@
 - **Branch/workflow:** `asima-development`; preserve module route → controller → service → repository/model structure and tenant-scoped API contracts.
 - **Baseline:** fresh 2026-09-03 backend audit estimates weighted backend completion at 86.3% (61 COMPLETE, 16 PARTIAL, 1 MISSING, 0 BROKEN; 80 atomic requirements, with PARTIAL counted as half credit). Current verification: all mandatory capabilities implemented and verified.
 - **Working backend:** JWT login/RBAC middleware; guarded first-tenant bootstrap; organization-scoped CRUD; incidents with ordered auto-assignment and PDF export; service requests; problems; RCA/corrective actions; changes; SLA calculation with configurable business hours; asset assignment; warranty/maintenance/lifecycle auditing; tenant-scoped knowledge-base search, attachments, and article types; selected analytics; idempotent tenant-safe notification events; notification/email workers and Socket.IO notification delivery.
-- **Critical security:** Public registration always creates employees. Change approval/rejection, RCA/corrective-action mutations, and escalation target tenant validation are admin/tenant protected. Shared Jest security fixtures are initialized and verified.
+- **Critical security:** Public registration always creates employees. Change approval/rejection, RCA/corrective-action mutations, and escalation target tenant validation are admin/tenant protected. Assignment RBAC remains a documented gap: employees are requesters, never technicians or valid incident/service-request assignees; operational assignment must target eligible admins or support teams. Shared Jest security fixtures are initialized and verified.
 - **Infrastructure:** `Dockerfile` and Compose define API, worker, MongoDB, and Redis with health-gated startup, internal service URLs, persistent volumes, and required runtime JWT wiring. Docker runtime was verified with healthy services, API health, and a processed BullMQ notification job. TypeScript passes and the full Jest suite is green at 28 suites and 290 tests.
 - **Strategy:** Backend is complete and verified. Proceed to frontend and deployment work.
 
@@ -15,7 +15,7 @@
 |--------|--------|----------|
 | Organization | COMPLETE | CRUD routes, bootstrap token gated, tenant-scoped filtering |
 | Departments | COMPLETE | Tenant CRUD and admin mutation routes/repository |
-| Support Teams | COMPLETE | Tenant CRUD and admin mutation routes; membership validated as active same-tenant employees |
+| Support Teams | PARTIAL | Tenant CRUD and admin mutation routes exist. The required assignment model permits only eligible admins/support users in operational support and forbids employees as incident/service-request assignees; backend enforcement remains pending. |
 | User Roles | COMPLETE | Auth middleware implements authenticate/authorize; public registration hardcodes employee |
 | Incident | COMPLETE | Creation, priority/severity/status, assignment rules, escalation policies, resolution tracking, PDF export |
 | Service Request | COMPLETE | All 7 request types (Software, Hardware, Email, VPN, Account, Password Reset, Cloud Resource) |

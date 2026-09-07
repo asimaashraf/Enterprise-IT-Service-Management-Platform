@@ -7,6 +7,7 @@ import ServiceRequest, {
 } from "./serviceRequest.model";
 
 import AuthUser from "../auth/auth.model";
+import { isEligibleOperationalAssignee } from "../auth/user.service";
 import { queueNotificationEvent } from "../notification/notification.service";
 
 // ==========================================
@@ -14,7 +15,7 @@ import { queueNotificationEvent } from "../notification/notification.service";
 // ==========================================
 
 interface CreateServiceRequestData {
-  requestId: string;
+  requestId?: string;
   title: string;
   description: string;
   type: ServiceRequestType;
@@ -22,6 +23,22 @@ interface CreateServiceRequestData {
   requestedBy: string;
   organizationId: string;
 }
+
+/**
+ * Generate a readable identifier. The compound unique index remains the
+ * authority for uniqueness within an organization.
+ */
+const generateServiceRequestId = (): string => {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const sequence = String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
+  return `SR-${date}-${sequence}`;
+};
+
+const isDuplicateKeyError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: unknown }).code === 11000;
 
 interface UpdateServiceRequestData {
   title?: string;
@@ -42,22 +59,6 @@ interface UpdateServiceRequestData {
 export const createServiceRequest = async (
   data: CreateServiceRequestData
 ) => {
-  // ------------------------------------------
-  // DUPLICATE REQUEST ID
-  // ------------------------------------------
-
-  const existingRequest =
-    await ServiceRequest.findOne({
-      requestId: data.requestId,
-      organizationId: data.organizationId,
-    });
-
-  if (existingRequest) {
-    throw new Error(
-      "A service request with this ID already exists in this organization"
-    );
-  }
-
   // ------------------------------------------
   // VALIDATE REQUESTER
   // ------------------------------------------
@@ -91,18 +92,39 @@ export const createServiceRequest = async (
   // CREATE
   // ------------------------------------------
 
-  return ServiceRequest.create({
-    requestId: data.requestId,
-    title: data.title,
-    description: data.description,
-    type: data.type,
-    priority: data.priority || "Medium",
-    status: "Pending",
+  // A supplied ID remains supported for existing API clients and tests. New
+  // clients omit it and receive a server-generated value.
+  const suppliedRequestId = data.requestId?.trim() || undefined;
+  const maxAttempts = suppliedRequestId ? 1 : 100;
 
-    // ObjectId values
-    requestedBy,
-    organizationId,
-  });
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const requestId = suppliedRequestId || generateServiceRequestId();
+
+    try {
+      return await ServiceRequest.create({
+        requestId,
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        priority: data.priority || "Medium",
+        status: "Pending",
+        requestedBy,
+        organizationId,
+      });
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+
+      if (suppliedRequestId) {
+        throw new Error(
+          "A service request with this ID already exists in this organization"
+        );
+      }
+    }
+  }
+
+  throw new Error("Unable to generate a unique service request ID");
 };
 
 // ==========================================
@@ -190,25 +212,18 @@ export const updateServiceRequest = async (
   // ==========================================
 
   if (data.assignedTo) {
-    const employee = await AuthUser.findOne({
-      _id: data.assignedTo,
-      organizationId,
-      isActive: true,
-    });
+    const isEligible = await isEligibleOperationalAssignee(
+      data.assignedTo,
+      organizationId
+    );
 
-    if (!employee) {
+    if (!isEligible) {
       throw new Error(
-        "Assigned user does not belong to this organization"
+        "Assigned user must be an eligible operational assignee"
       );
     }
 
-    if (employee.role !== "employee") {
-      throw new Error(
-        "Service requests can only be assigned to employees"
-      );
-    }
-
-    updateData.assignedTo = employee._id;
+    updateData.assignedTo = new mongoose.Types.ObjectId(data.assignedTo);
   }
 
   // ==========================================

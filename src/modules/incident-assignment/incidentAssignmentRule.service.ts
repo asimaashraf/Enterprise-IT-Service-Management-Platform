@@ -7,6 +7,7 @@ import {
 } from "./incidentAssignmentRule.model";
 
 import { incidentAssignmentRuleRepository } from "./incidentAssignmentRule.repository";
+import { isEligibleOperationalAssignee } from "../auth/user.service";
 
 // ==========================================
 // TYPES
@@ -84,18 +85,17 @@ export const createAssignmentRule =
     }
 
     // --------------------------------------
-    // Verify target employee
+    // Verify eligible operational target
     // --------------------------------------
 
-    const targetUser =
-      await incidentAssignmentRuleRepository.findTargetUserByOrganization(
-        data.targetUser,
-        data.organizationId
-      );
+    const isEligible = await isEligibleOperationalAssignee(
+      data.targetUser,
+      data.organizationId
+    );
 
-    if (!targetUser) {
+    if (!isEligible) {
       throw new Error(
-        "Target user does not exist in this organization"
+        "Target user must be an eligible operational assignee"
       );
     }
 
@@ -390,15 +390,14 @@ export const updateAssignmentRule =
         );
       }
 
-      const targetUser =
-        await incidentAssignmentRuleRepository.findTargetUserByOrganization(
-          data.targetUser,
-          organizationId
-        );
+      const isEligible = await isEligibleOperationalAssignee(
+        data.targetUser,
+        organizationId
+      );
 
-      if (!targetUser) {
+      if (!isEligible) {
         throw new Error(
-          "Target user does not exist in this organization"
+          "Target user must be an eligible operational assignee"
         );
       }
 

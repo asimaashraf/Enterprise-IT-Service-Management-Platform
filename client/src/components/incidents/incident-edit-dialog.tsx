@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useSelector } from 'react-redux'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 
 import {
@@ -39,7 +38,7 @@ import {
   type UpdateIncidentFormData,
 } from '@/components/incidents/incident-form'
 import { getUserId } from '@/types/incident'
-import { userApi } from '@/lib/userApi'
+import { useEligibleOperationalAssignees } from '@/hooks/useEligibleOperationalAssignees'
 import type { RootState } from '@/store/store'
 
 interface IncidentEditDialogProps {
@@ -59,28 +58,20 @@ export function IncidentEditDialog({
 }: IncidentEditDialogProps) {
   const user = useSelector((s: RootState) => s.auth.user)
   const isAdmin = user?.role === 'admin'
-  const currentUserId = user?.id
 
   // Current assignee ID from the incident
   const currentAssigneeId = incident ? getUserId(incident.assignedTo as Parameters<typeof getUserId>[0]) : undefined
 
-  // Determine if the current user can edit this incident
-  const assignedUserId = incident ? getUserId(incident.assignedTo as Parameters<typeof getUserId>[0]) : undefined
-  const canEdit =
-    isAdmin || (assignedUserId === currentUserId && ['In Progress', 'Resolved'].includes(incident?.status ?? ''))
+  const canEdit = isAdmin
 
   // Track whether the admin has explicitly changed the assignment field
   const [explicitAssignment, setExplicitAssignment] = useState<UpdateIncidentFormData['assignedTo']>(undefined)
 
-  // Fetch all users (admin-only) for the assignment dropdown
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ['admin-users'],
-    queryFn: () => userApi.list(),
-    enabled: isAdmin && open,
-  })
-
-  // Active employees only
-  const employees = allUsers.filter((u) => u.role === 'employee' && u.isActive)
+  const {
+    data: eligibleAssignees = [],
+    isLoading: isLoadingAssignees,
+    isError: isAssigneeError,
+  } = useEligibleOperationalAssignees(isAdmin && open)
 
   const form = useForm<UpdateIncidentFormData>({
     resolver: zodResolver(updateIncidentSchema),
@@ -110,6 +101,7 @@ export function IncidentEditDialog({
   }, [open, incident, form])
 
   const handleSubmit = async (data: UpdateIncidentFormData) => {
+    if (!isAdmin) return
     const payload: UpdateIncidentFormData = {
       ...data,
       assignedTo: explicitAssignment,
@@ -133,13 +125,11 @@ export function IncidentEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Permission notice for employees */}
-        {!canEdit && !isAdmin && (
+        {!isAdmin && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200">
             <p className="font-medium">Editing restrictions apply</p>
             <p className="mt-1 text-xs">
-              As an employee, you can only update the status (In Progress / Resolved) and resolution
-              for incidents that are assigned to you.
+              Employees can view and track incidents they are authorized to access, but cannot perform operational incident workflow actions.
             </p>
           </div>
         )}
@@ -243,7 +233,7 @@ export function IncidentEditDialog({
             {/* Assigned To — admin only */}
             {isAdmin && (
               <FormItem>
-                <FormLabel>Assigned To</FormLabel>
+                <FormLabel>Assignee</FormLabel>
                 <FormControl>
                   <Select
                     value={
@@ -267,18 +257,20 @@ export function IncidentEditDialog({
                         placeholder={
                           explicitAssignment === undefined && currentAssigneeId
                             ? undefined
-                            : 'Select an employee…'
+                            : 'Select a support member…'
                         }
                       />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__keep__">
                         {currentAssigneeId
-                          ? `Keep: ${allUsers.find((u) => u.id === currentAssigneeId)?.name ?? currentAssigneeId}`
+                          ? `Keep: ${eligibleAssignees.find((u) => u.id === currentAssigneeId)?.name ?? currentAssigneeId}`
                           : 'Keep Current Assignment'}
                       </SelectItem>
                       <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                      {employees.map((emp) => (
+                      {isLoadingAssignees && <SelectItem value="__loading__" disabled>Loading eligible assignees...</SelectItem>}
+                      {!isLoadingAssignees && eligibleAssignees.length === 0 && <SelectItem value="__empty__" disabled>No eligible support members are available.</SelectItem>}
+                      {eligibleAssignees.map((emp) => (
                         <SelectItem key={emp.id} value={emp.id}>
                           <span>
                             {emp.name}{' '}
@@ -289,14 +281,14 @@ export function IncidentEditDialog({
                     </SelectContent>
                   </Select>
                 </FormControl>
-                <p className="text-xs text-muted-foreground">
-                  Admins can assign, reassign, or unassign incidents.
-                </p>
+                  <p className="text-xs text-muted-foreground">
+                    Admins can assign, reassign, or unassign incidents.
+                  </p>
+                  {isAssigneeError && <p className="text-xs text-destructive">Eligible assignees could not be loaded. Retry after resolving the connection issue.</p>}
               </FormItem>
             )}
 
-            {/* Status — both admin and employee (employee limited) */}
-            <FormItem>
+            {isAdmin && <FormItem>
               <FormLabel required>Status</FormLabel>
               <FormControl>
                 <Select
@@ -307,15 +299,7 @@ export function IncidentEditDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {incidentStatusOptions
-                      .filter((opt) => {
-                        if (!isAdmin && !canEdit) return false
-                        if (!isAdmin) {
-                          return opt.value === 'In Progress' || opt.value === 'Resolved'
-                        }
-                        return true
-                      })
-                      .map((opt) => (
+                    {incidentStatusOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
@@ -326,15 +310,9 @@ export function IncidentEditDialog({
               {form.formState.errors.status && (
                 <FormMessage>{form.formState.errors.status.message}</FormMessage>
               )}
-              {!isAdmin && (
-                <p className="text-xs text-muted-foreground">
-                  Employees can only set status to In Progress or Resolved.
-                </p>
-              )}
-            </FormItem>
+            </FormItem>}
 
-            {/* Resolution — both */}
-            <FormItem>
+            {isAdmin && <FormItem>
               <FormLabel>
                 Resolution
                 {form.watch('status') === 'Resolved' && (
@@ -357,7 +335,7 @@ export function IncidentEditDialog({
                   Resolution text is required when marking an incident as Resolved.
                 </p>
               )}
-            </FormItem>
+            </FormItem>}
           </div>
         </Form>
 

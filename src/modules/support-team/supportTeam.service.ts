@@ -26,7 +26,7 @@ const validateMembers = async (
     throw new Error("One or more support team members have an invalid ID");
   }
 
-  const members = await authRepository.findActiveEmployeesByOrganization(
+  const members = await authRepository.findActiveAdminsByOrganization(
     organizationId
   );
   const activeMemberIds = new Set(
@@ -35,7 +35,7 @@ const validateMembers = async (
 
   if (uniqueIds.some((memberId) => !activeMemberIds.has(memberId))) {
     throw new Error(
-      "Support team members must be active employees in this organization"
+      "Support team members must be active admins in this organization"
     );
   }
 

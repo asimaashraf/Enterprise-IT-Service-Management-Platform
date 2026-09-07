@@ -7,11 +7,24 @@ import mongoose from "mongoose";
 
 import app from "../src/app";
 import { connectDB } from "../src/config/db";
+import AuthUser from "../src/modules/auth/auth.model";
+import Organization from "../src/modules/organization/organization.model";
+import SupportTeam from "../src/modules/support-team/supportTeam.model";
+import { createTestUser } from "./test-fixtures";
 
 describe("Incident Management API", () => {
   let adminToken: string;
   let employeeToken: string;
   let employeeId: string;
+  let organizationId: string;
+  let supportAdminToken: string;
+  let supportAdminId: string;
+  let unassignedAdminId: string;
+  let inactiveAdminId: string;
+  let otherAdminId: string;
+  let otherOrganizationId: string;
+  const createdUserIds: string[] = [];
+  const createdTeamIds: string[] = [];
 
   let createdIncidentId: string;
   let createdIncidentNumber: string;
@@ -53,6 +66,7 @@ describe("Incident Management API", () => {
     expect(adminLogin.body.data.token).toBeDefined();
 
     adminToken = adminLogin.body.data.token;
+    organizationId = adminLogin.body.data.user.organizationId;
 
     // ==========================================
     // EMPLOYEE LOGIN
@@ -72,6 +86,68 @@ describe("Incident Management API", () => {
     employeeToken = employeeLogin.body.data.token;
     employeeId = employeeLogin.body.data.user.id;
 
+    const suffix = Date.now();
+    const supportAdmin = await createTestUser({
+      name: "Incident Support Admin",
+      email: `incident-support-admin-${suffix}@example.com`,
+      password: "IncidentSupport123!",
+      role: "admin",
+      organizationId,
+    });
+    supportAdminId = supportAdmin._id.toString();
+    createdUserIds.push(supportAdminId);
+
+    const supportAdminLogin = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: supportAdmin.email, password: "IncidentSupport123!" });
+    expect(supportAdminLogin.status).toBe(200);
+    supportAdminToken = supportAdminLogin.body.data.token;
+
+    const supportTeam = await SupportTeam.create({
+      name: `Incident Support Team ${suffix}`,
+      organizationId,
+      members: [supportAdminId],
+      isActive: true,
+    });
+    createdTeamIds.push(supportTeam._id.toString());
+
+    const unassignedAdmin = await createTestUser({
+      name: "Incident Unassigned Admin",
+      email: `incident-unassigned-admin-${suffix}@example.com`,
+      password: "IncidentUnassigned123!",
+      role: "admin",
+      organizationId,
+    });
+    unassignedAdminId = unassignedAdmin._id.toString();
+    createdUserIds.push(unassignedAdminId);
+
+    const inactiveAdmin = await createTestUser({
+      name: "Incident Inactive Admin",
+      email: `incident-inactive-admin-${suffix}@example.com`,
+      password: "IncidentInactive123!",
+      role: "admin",
+      organizationId,
+    });
+    inactiveAdminId = inactiveAdmin._id.toString();
+    createdUserIds.push(inactiveAdminId);
+    await AuthUser.findByIdAndUpdate(inactiveAdminId, { isActive: false });
+
+    const otherOrganization = await Organization.create({
+      name: `Incident Other Organization ${suffix}`,
+      slug: `incident-other-${suffix}`,
+      isActive: true,
+    });
+    otherOrganizationId = otherOrganization._id.toString();
+    const otherAdmin = await createTestUser({
+      name: "Incident Other Admin",
+      email: `incident-other-admin-${suffix}@example.com`,
+      password: "IncidentOther123!",
+      role: "admin",
+      organizationId: otherOrganizationId,
+    });
+    otherAdminId = otherAdmin._id.toString();
+    createdUserIds.push(otherAdminId);
+
     console.log(
       "BOTH USERS LOGGED IN SUCCESSFULLY"
     );
@@ -83,6 +159,10 @@ describe("Incident Management API", () => {
 
   afterAll(async () => {
     console.log("Closing MongoDB connection...");
+
+    await SupportTeam.deleteMany({ _id: { $in: createdTeamIds } });
+    await AuthUser.deleteMany({ _id: { $in: createdUserIds } });
+    await Organization.deleteOne({ _id: otherOrganizationId });
 
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
@@ -429,40 +509,43 @@ describe("Incident Management API", () => {
   // ADMIN ASSIGNMENT
   // ==========================================
 
-  it("should allow an admin to assign an incident to an employee", async () => {
+  it("rejects employee, unassigned admin, inactive admin, and cross-tenant admin assignments", async () => {
     expect(createdIncidentId).toBeDefined();
 
-    const response = await request(app)
-      .put(
-        `/api/v1/incidents/${createdIncidentId}`
-      )
-      .set(
-        "Authorization",
-        `Bearer ${adminToken}`
-      )
-      .send({
-        assignedTo:
-          employeeId,
-      });
+    for (const targetId of [
+      employeeId,
+      unassignedAdminId,
+      inactiveAdminId,
+      otherAdminId,
+    ]) {
+      const response = await request(app)
+        .put(`/api/v1/incidents/${createdIncidentId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ assignedTo: targetId });
 
-    console.log(
-      "ADMIN ASSIGN RESPONSE:",
-      response.body
-    );
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe(
+        "Assigned user must be an eligible operational assignee"
+      );
+    }
+  });
+
+  it("allows an admin to assign an incident to an eligible support admin", async () => {
+    const response = await request(app)
+      .put(`/api/v1/incidents/${createdIncidentId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ assignedTo: supportAdminId });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-
-    expect(
-      response.body.data.assignedTo
-    ).toBeDefined();
+    expect(response.body.data.assignedTo._id).toBe(supportAdminId);
   });
 
   // ==========================================
   // EMPLOYEE BASIC UPDATE
   // ==========================================
 
-  it("should allow the assigned employee to update an incident", async () => {
+  it("prevents an employee from managing an incident even if they attempt an operational update", async () => {
     expect(createdIncidentId).toBeDefined();
 
     const response = await request(app)
@@ -478,28 +561,22 @@ describe("Incident Management API", () => {
           "Updated by assigned employee",
       });
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-
-    expect(
-      response.body.data.description
-    ).toBe(
-      "Updated by assigned employee"
-    );
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
   });
 
   // ==========================================
   // EMPLOYEE → IN PROGRESS
   // ==========================================
 
-  it("should allow the assigned employee to move an incident to In Progress", async () => {
+  it("allows the assigned support admin to move an incident to In Progress", async () => {
     const response = await request(app)
       .put(
         `/api/v1/incidents/${createdIncidentId}`
       )
       .set(
         "Authorization",
-        `Bearer ${employeeToken}`
+        `Bearer ${supportAdminToken}`
       )
       .send({
         status: "In Progress",
@@ -538,7 +615,7 @@ describe("Incident Management API", () => {
   // EMPLOYEE → RESOLVED WITHOUT RESOLUTION
   // ==========================================
 
-  it("should reject resolving an incident without a resolution", async () => {
+  it("prevents employees from resolving incidents without a resolution", async () => {
     const response = await request(app)
       .put(
         `/api/v1/incidents/${createdIncidentId}`
@@ -551,7 +628,7 @@ describe("Incident Management API", () => {
         status: "Resolved",
       });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(403);
     expect(response.body.success).toBe(false);
   });
 
@@ -559,14 +636,14 @@ describe("Incident Management API", () => {
   // EMPLOYEE → RESOLVED
   // ==========================================
 
-  it("should allow the assigned employee to resolve an incident", async () => {
+  it("allows the assigned support admin to resolve an incident", async () => {
     const response = await request(app)
       .put(
         `/api/v1/incidents/${createdIncidentId}`
       )
       .set(
         "Authorization",
-        `Bearer ${employeeToken}`
+        `Bearer ${supportAdminToken}`
       )
       .send({
         status: "Resolved",

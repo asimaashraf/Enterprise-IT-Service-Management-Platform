@@ -7,6 +7,10 @@ import { connectDB } from "../src/config/db";
 
 import IncidentAssignmentRule from "../src/modules/incident-assignment/incidentAssignmentRule.model";
 import Incident from "../src/modules/incident/incident.model";
+import AuthUser from "../src/modules/auth/auth.model";
+import Organization from "../src/modules/organization/organization.model";
+import SupportTeam from "../src/modules/support-team/supportTeam.model";
+import { createTestUser } from "./test-fixtures";
 
 // =====================================================
 // JEST TIMEOUT
@@ -24,6 +28,13 @@ describe("Incident Assignment Rule Integration Tests", () => {
 
   let organizationId!: string;
   let employeeId!: string;
+  let supportAdminId!: string;
+  let unassignedAdminId!: string;
+  let inactiveAdminId!: string;
+  let otherAdminId!: string;
+  let otherOrganizationId!: string;
+  let supportTeamId!: string;
+  const createdUserIds: string[] = [];
 
   let createdRuleId!: string;
   let createdIncidentId!: string;
@@ -132,6 +143,62 @@ describe("Incident Assignment Rule Integration Tests", () => {
       organizationId
     );
 
+    const suffix = Date.now();
+    const supportAdmin = await createTestUser({
+      name: "Assignment Rule Support Admin",
+      email: `assignment-rule-support-${suffix}@example.com`,
+      password: "AssignmentRuleSupport123!",
+      role: "admin",
+      organizationId,
+    });
+    supportAdminId = supportAdmin._id.toString();
+    createdUserIds.push(supportAdminId);
+
+    const supportTeam = await SupportTeam.create({
+      name: `Assignment Rule Support Team ${suffix}`,
+      organizationId,
+      members: [supportAdminId],
+      isActive: true,
+    });
+    supportTeamId = supportTeam._id.toString();
+
+    const unassignedAdmin = await createTestUser({
+      name: "Assignment Rule Unassigned Admin",
+      email: `assignment-rule-unassigned-${suffix}@example.com`,
+      password: "AssignmentRuleUnassigned123!",
+      role: "admin",
+      organizationId,
+    });
+    unassignedAdminId = unassignedAdmin._id.toString();
+    createdUserIds.push(unassignedAdminId);
+
+    const inactiveAdmin = await createTestUser({
+      name: "Assignment Rule Inactive Admin",
+      email: `assignment-rule-inactive-${suffix}@example.com`,
+      password: "AssignmentRuleInactive123!",
+      role: "admin",
+      organizationId,
+    });
+    inactiveAdminId = inactiveAdmin._id.toString();
+    createdUserIds.push(inactiveAdminId);
+    await AuthUser.findByIdAndUpdate(inactiveAdminId, { isActive: false });
+
+    const otherOrganization = await Organization.create({
+      name: `Assignment Rule Other Organization ${suffix}`,
+      slug: `assignment-rule-other-${suffix}`,
+      isActive: true,
+    });
+    otherOrganizationId = otherOrganization._id.toString();
+    const otherAdmin = await createTestUser({
+      name: "Assignment Rule Other Admin",
+      email: `assignment-rule-other-admin-${suffix}@example.com`,
+      password: "AssignmentRuleOther123!",
+      role: "admin",
+      organizationId: otherOrganizationId,
+    });
+    otherAdminId = otherAdmin._id.toString();
+    createdUserIds.push(otherAdminId);
+
     // -----------------------------------------------------
     // LOG TEST SETUP
     // -----------------------------------------------------
@@ -195,6 +262,12 @@ describe("Incident Assignment Rule Integration Tests", () => {
         });
       }
 
+      if (supportTeamId) {
+        await SupportTeam.deleteOne({ _id: supportTeamId });
+      }
+      await AuthUser.deleteMany({ _id: { $in: createdUserIds } });
+      await Organization.deleteOne({ _id: otherOrganizationId });
+
       console.log(
         "Incident assignment rule test cleanup completed."
       );
@@ -248,7 +321,7 @@ describe("Incident Assignment Rule Integration Tests", () => {
 
           severity: "Major",
 
-          targetUser: employeeId,
+          targetUser: supportAdminId,
         });
 
       console.log(
@@ -398,6 +471,31 @@ describe("Incident Assignment Rule Integration Tests", () => {
   );
 
   // =====================================================
+  it("rejects employee, unassigned admin, inactive admin, and cross-tenant admin rule targets", async () => {
+    for (const targetUser of [
+      employeeId,
+      unassignedAdminId,
+      inactiveAdminId,
+      otherAdminId,
+    ]) {
+      const response = await request(app)
+        .post("/api/v1/incident-assignment-rules")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: `Ineligible Assignment Rule ${targetUser}`,
+          ruleOrder: Math.floor(Math.random() * 100000) + 100,
+          incidentPriority: "Low",
+          severity: "Minor",
+          targetUser,
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe(
+        "Target user must be an eligible operational assignee"
+      );
+    }
+  });
+
   // INVALID RULE ORDER
   // =====================================================
 
@@ -573,6 +671,18 @@ describe("Incident Assignment Rule Integration Tests", () => {
     }
   );
 
+  it("rejects an ineligible target when updating an assignment rule", async () => {
+    const response = await request(app)
+      .put(`/api/v1/incident-assignment-rules/${createdRuleId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ targetUser: employeeId });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      "Target user must be an eligible operational assignee"
+    );
+  });
+
   // =====================================================
   // DEACTIVATE RULE
   // =====================================================
@@ -745,10 +855,29 @@ describe("Incident Assignment Rule Integration Tests", () => {
       expect(
         assignedUserId.toString()
       ).toBe(
-        employeeId.toString()
+        supportAdminId.toString()
       );
     }
   );
+
+  it("leaves an incident unassigned when a previously valid rule target becomes ineligible", async () => {
+    await SupportTeam.findByIdAndUpdate(supportTeamId, { isActive: false });
+
+    const response = await request(app)
+      .post("/api/v1/incidents")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        incidentId: `INC-STALE-ASSIGN-${Date.now()}`,
+        title: "Stale assignment target test",
+        description: "The incident must not be assigned to an inactive team member.",
+        priority: "High",
+        severity: "Major",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.assignedTo).toBeFalsy();
+    await Incident.deleteOne({ _id: response.body.data._id });
+  });
 
   // =====================================================
   // NON-ADMIN DELETE

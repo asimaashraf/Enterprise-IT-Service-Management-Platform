@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   UserListItem,
   UserRole,
+  EligibleOperationalAssignee,
   InvitationDetail,
   InvitationValidation,
 } from '@/types/auth'
@@ -26,6 +27,13 @@ export const userApi = {
       '/users',
     )
     return unwrap<UserListItem[]>(response)
+  },
+
+  async eligibleAssignees(): Promise<EligibleOperationalAssignee[]> {
+    const response = await apiClient.get<ApiEnvelope<EligibleOperationalAssignee[]>>(
+      '/users/eligible-assignees',
+    )
+    return unwrap<EligibleOperationalAssignee[]>(response)
   },
 
   async activate(id: string): Promise<UserListItem> {

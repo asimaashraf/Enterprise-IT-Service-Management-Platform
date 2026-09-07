@@ -3,6 +3,13 @@ import mongoose from "mongoose";
 
 import { authRepository } from "./auth.repository";
 
+export interface EligibleOperationalAssignee {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin";
+}
+
 // ==========================================
 // TYPES
 // ==========================================
@@ -65,6 +72,49 @@ export const getUsersByOrganization = async (organizationId: string) => {
     throw new Error("Invalid organization ID");
   }
   return authRepository.findAllByOrganization(organizationId);
+};
+
+// ==========================================
+// ELIGIBLE OPERATIONAL ASSIGNEES
+// Active same-tenant admins who belong to at least one active support team.
+// ==========================================
+
+export const getEligibleOperationalAssignees = async (
+  organizationId: string
+): Promise<EligibleOperationalAssignee[]> => {
+  if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+    throw new Error("Invalid organization ID");
+  }
+
+  const users = await authRepository.findEligibleOperationalAssignees(
+    organizationId
+  );
+
+  return users.map((user) => ({
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  }));
+};
+
+export const isEligibleOperationalAssignee = async (
+  userId: string,
+  organizationId: string
+): Promise<boolean> => {
+  if (
+    !mongoose.Types.ObjectId.isValid(userId) ||
+    !mongoose.Types.ObjectId.isValid(organizationId)
+  ) {
+    return false;
+  }
+
+  const users = await authRepository.findEligibleOperationalAssignees(
+    organizationId,
+    userId
+  );
+
+  return users.length === 1;
 };
 
 // ==========================================

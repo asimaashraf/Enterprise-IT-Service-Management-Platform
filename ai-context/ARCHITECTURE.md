@@ -33,6 +33,14 @@ The repository boundary is not consistent everywhere. Service-request services u
 - `requireOrganization` verifies that an authenticated request has an organization claim.
 - Role protection is applied unevenly. Change approval/rejection and RCA/corrective-action mutations now require the admin role; other authorization gaps remain under audit.
 
+# RBAC and Assignment Model
+
+The only authentication roles are `admin` and `employee`. An employee is an organization end user/requester: they can create and track authorized incidents and service requests, read Knowledge Base content, and receive relevant notifications. They are not technicians, cannot assign work, perform administrative workflow actions, or manage tenant administration.
+
+An admin is the tenant's IT operations/support side and may manage supported operational workflows, assignments, tenant administration, departments, and support teams where authorized. Operational support is modeled through support teams (for example, Service Desk, Hardware Support, Network Support, and Application Support); admins may belong to one or more teams.
+
+Incidents and service requests must be assigned only to an eligible admin/support user, or to a valid support team where team-level assignment is supported. Employees must never be valid assignees. Frontend role filtering is UX only; backend validation must reject unauthorized assignments and workflow actions, invalid status transitions, invalid assignees, and cross-tenant access. This is a documented authorization/business-rule gap in current assignment behavior and requires backend enforcement before it can be considered complete.
+
 # Multi-Tenant Flow
 
 `organizationId` is the tenant context carried in JWT claims and attached to organization-owned records. Services pass it into repositories, which normally include it in reads, updates, deletes, and relationship checks.
@@ -51,7 +59,7 @@ Tenant isolation is substantial but not universal. Escalation policy targets and
 
 # Incident Automation Flow
 
-Incident creation validates the reporter and organization, determines priority and severity, and asks the ordered active assignment rules to find a matching target. When a user is assigned, an assignment notification is queued.
+Incident creation validates the reporter and organization, determines priority and severity, and asks the ordered active assignment rules to find a matching target. Assignment targets must satisfy the RBAC and Assignment Model; when an eligible support target is assigned, an assignment notification is queued.
 
 ```text
 Incident creation

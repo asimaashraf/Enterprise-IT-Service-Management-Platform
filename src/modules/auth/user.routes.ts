@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createUserController,
   getUsersController,
+  getEligibleOperationalAssigneesController,
   getUserController,
   updateUserController,
   deactivateUserController,
@@ -42,6 +43,13 @@ router.get(
 );
 
 // GET ONE USER — Admin only
+router.get(
+  "/eligible-assignees",
+  authenticate,
+  authorize("admin"),
+  getEligibleOperationalAssigneesController
+);
+
 router.get(
   "/:id",
   authenticate,

@@ -15,6 +15,7 @@ Backend verification complete. All mandatory backend capabilities implemented an
 - [x] Add incident trends, SLA compliance, standalone resolution-time analytics, and complete asset health signals.
 - [x] Add new-incident, assignment, SLA-breach, escalation, change-approval, and service-request-update notifications with idempotent tenant-safe delivery.
 - [x] Complete guarded tenant bootstrap, active same-tenant support-team membership validation, and AuthUser references.
+- [x] Add the shared active same-tenant ADMIN Support Team eligibility query and admin-only eligible-assignees endpoint.
 - [x] Restore dependencies, verify deterministic isolated fixtures, and keep the full Jest suite green at 28 suites and 290 tests.
 - [x] Add API/worker Docker image and health-gated MongoDB/Redis Compose deployment; runtime startup and BullMQ processing were verified locally.
 - [x] Complete backend API, database design, setup, deployment, runtime verification, and production operations documentation with placeholders only.
@@ -39,7 +40,7 @@ Backend verification complete. All mandatory backend capabilities implemented an
 - [x] Knowledge-base search, tenant-safe attachment metadata handling, secure attachment access controls, and typed Article/FAQ/Troubleshooting Guide/SOP support are implemented and verified.
 - [x] Analytics now exposes tenant-scoped incident trends, SLA compliance, resolution time, technician performance, asset health, and change success rate; focused coverage verifies all six metrics and cross-tenant isolation.
 - [x] Notification Center events are integrated through BullMQ with deterministic duplicate suppression, active same-tenant recipient checks, and preserved Redis/Socket.IO delivery.
-- [x] First-tenant bootstrap is guarded by `BOOTSTRAP_TOKEN` and a no-existing-users check; support-team members are validated as active same-tenant employees.
+- [x] First-tenant bootstrap is guarded by `BOOTSTRAP_TOKEN` and a no-existing-users check; support-team members are validated as active same-tenant ADMIN users.
 - [x] Fixed the two Knowledge Base regressions: multi-term search now matches terms across title/content/category, and safe attachment storage keys accept normal file extensions; full Jest is green.
 - [x] Added tenant-scoped audit logging for successful and failed mutations, actor/resource metadata, sensitive-field redaction, admin-only audit reads, and focused security coverage.
 - [x] Final MERN-014 backend verification completed: all 11 management areas, all technical requirements, and all security/tenant isolation controls verified. Full Jest suite passes 28 suites and 290 tests. Docker runtime verified with healthy API, MongoDB, Redis, and worker services. BullMQ job processing evidence confirmed. TypeScript passes. git diff --check clean (only pre-existing CRLF warning).

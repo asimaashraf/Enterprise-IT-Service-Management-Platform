@@ -40,7 +40,7 @@ export const updateIncidentSchema = z.object({
   severity: z.enum(['Minor', 'Major', 'Critical']),
   status: z.enum(['Open', 'In Progress', 'Pending', 'Resolved', 'Closed']),
   resolution: z.string().max(4000, 'Resolution must be 4000 characters or less').optional(),
-  // Admin-only: employee user ID string, null to unassign
+  // Admin-only: eligible operational assignee ID string, null to unassign
   assignedTo: z.string().nullable().optional(),
 })
 

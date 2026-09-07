@@ -6,25 +6,9 @@ import IncidentAssignmentRule, {
   IIncidentAssignmentRule,
 } from "./incidentAssignmentRule.model";
 
-import AuthUser from "../auth/auth.model";
-
 // ==========================================
 // INCIDENT ASSIGNMENT RULE REPOSITORY
 // ==========================================
-
-// ==========================================
-// FIND TARGET USER BY ORGANIZATION
-// ==========================================
-
-export const findTargetUserByOrganization = async (
-  userId: string,
-  organizationId: string
-) => {
-  return AuthUser.findOne({
-    _id: userId,
-    organizationId,
-  });
-};
 
 // ==========================================
 // FIND BY ORGANIZATION + RULE ORDER
@@ -248,7 +232,6 @@ export const findApplicableRules = async (
 // ==========================================
 
 export const incidentAssignmentRuleRepository = {
-  findTargetUserByOrganization,
   findByOrganizationAndRuleOrder,
   findByOrganizationAndName,
   create,

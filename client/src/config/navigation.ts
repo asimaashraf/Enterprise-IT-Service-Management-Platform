@@ -65,6 +65,12 @@ export const navGroups: NavGroup[] = [
         icon: Users,
         visibleTo: ['admin'],
       },
+      {
+        label: 'Support Teams',
+        to: '/support-teams',
+        icon: Users,
+        visibleTo: ['admin'],
+      },
       { label: 'Settings', to: '/settings', icon: Settings },
     ],
   },
