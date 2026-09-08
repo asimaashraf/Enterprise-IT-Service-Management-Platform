@@ -53,16 +53,19 @@ export const rcaRepository = {
     })
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title priority severity status",
       })
@@ -109,16 +112,19 @@ export const rcaRepository = {
     })
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status rootCause",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title description priority severity status resolution",
       });
@@ -152,16 +158,19 @@ export const rcaRepository = {
     })
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status rootCause",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title description priority severity status resolution",
       });
@@ -234,16 +243,19 @@ export const rcaRepository = {
     )
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status rootCause",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title description priority severity status resolution",
       });

@@ -1,3 +1,6 @@
+import { validateRCAInput, validId } from "./rca.validation";
+import { withRCAMutation } from "./rca.mutation";
+import RCACorrectiveAction from "./rcaCorrectiveAction.model";
 
 import mongoose from "mongoose";
 
@@ -37,7 +40,6 @@ interface UpdateRCAData {
   correctiveActions?: string[];
   preventiveActions?: string[];
   lessonsLearned?: string[];
-  identifiedBy?: string;
   relatedIncidents?: string[];
   status?: RCAStatus;
 }
@@ -47,7 +49,7 @@ interface UpdateRCAData {
 // ==========================================
 
 const isValidObjectId = (id: string): boolean => {
-  return mongoose.Types.ObjectId.isValid(id);
+  return validId(id);
 };
 
 /**
@@ -171,7 +173,7 @@ const validateRCAStatusTransition = (
 // ==========================================
 
 export const createRCA = async (
-  data: CreateRCAData
+  data: unknown
 ): Promise<IRCA> => {
   const {
     rcaId,
@@ -186,7 +188,7 @@ export const createRCA = async (
     relatedIncidents = [],
     organizationId,
     status = "Draft",
-  } = data;
+  } = validateRCAInput(data, true) as unknown as CreateRCAData;
 
   // Validate organization
   if (!isValidObjectId(organizationId)) {
@@ -391,16 +393,19 @@ export const getRCAsByOrganization =
     })
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title priority severity status",
       })
@@ -437,16 +442,19 @@ export const getRCAById = async (
   })
     .populate({
       path: "problem",
+      match: { organizationId },
       select:
         "problemId title description priority impact urgency status rootCause",
     })
     .populate({
       path: "identifiedBy",
+      match: { organizationId },
       select:
         "name email role",
     })
     .populate({
       path: "relatedIncidents",
+      match: { organizationId },
       select:
         "incidentId title description priority severity status resolution",
     });
@@ -481,16 +489,19 @@ export const getRCAByProblem =
     })
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status rootCause",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title description priority severity status resolution",
       });
@@ -502,7 +513,7 @@ export const getRCAByProblem =
 // UPDATE RCA
 // ==========================================
 
-export const updateRCA = async (
+const updateRCAUnlocked = async (
   rcaId: string,
   organizationId: string,
   data: UpdateRCAData,
@@ -566,78 +577,7 @@ export const updateRCA = async (
   // BUILD SAFE UPDATE DATA
   // ========================================
 
-  const updateData: UpdateRCAData = {
-    ...data,
-  };
-
-  // identifiedBy cannot be changed
-  delete updateData.identifiedBy;
-
-  // ========================================
-  // CLEAN ROOT CAUSE
-  // ========================================
-
-  if (data.rootCause !== undefined) {
-    const cleaned =
-      data.rootCause.trim();
-
-    if (cleaned) {
-      updateData.rootCause = cleaned;
-    } else {
-      delete updateData.rootCause;
-    }
-  }
-
-  // ========================================
-  // CLEAN INVESTIGATION
-  // ========================================
-
-  if (data.investigation !== undefined) {
-    const cleaned =
-      data.investigation.trim();
-
-    if (cleaned) {
-      updateData.investigation =
-        cleaned;
-    } else {
-      delete updateData.investigation;
-    }
-  }
-
-  // ========================================
-  // CLEAN ARRAY FIELDS
-  // ========================================
-
-  const arrayFields: Array<
-    keyof Pick<
-      UpdateRCAData,
-      | "correctiveActions"
-      | "contributingFactors"
-      | "preventiveActions"
-      | "lessonsLearned"
-    >
-  > = [
-    "correctiveActions",
-    "contributingFactors",
-    "preventiveActions",
-    "lessonsLearned",
-  ];
-
-  for (const field of arrayFields) {
-    if (data[field] !== undefined) {
-      const cleaned =
-        cleanStringArray(data[field]);
-
-      if (
-        cleaned &&
-        cleaned.length > 0
-      ) {
-        updateData[field] = cleaned;
-      } else {
-        delete updateData[field];
-      }
-    }
-  }
+  const updateData = validateRCAInput(data, false) as UpdateRCAData;
 
   // ========================================
   // VALIDATE CHANGED PROBLEM
@@ -771,9 +711,7 @@ export const updateRCA = async (
         organizationId,
 
         // Critical immutability protection
-        status: {
-          $ne: "Approved",
-        },
+        status: existingRCA.status,
       },
       {
         $set: updateData,
@@ -785,16 +723,19 @@ export const updateRCA = async (
     )
       .populate({
         path: "problem",
+        match: { organizationId },
         select:
           "problemId title description priority impact urgency status rootCause",
       })
       .populate({
         path: "identifiedBy",
+        match: { organizationId },
         select:
           "name email role",
       })
       .populate({
         path: "relatedIncidents",
+        match: { organizationId },
         select:
           "incidentId title description priority severity status resolution",
       });
@@ -828,7 +769,7 @@ export const updateRCA = async (
 // DELETE RCA
 // ==========================================
 
-export const deleteRCA = async (
+const deleteRCAUnlocked = async (
   rcaId: string,
   organizationId: string
 ): Promise<IRCA | null> => {
@@ -876,6 +817,9 @@ export const deleteRCA = async (
   // DELETE
   // ========================================
 
+  // Children first under the shared lock: failure retains the parent.
+  await RCACorrectiveAction.deleteMany({ rca: rcaId, organizationId });
+
   const deletedRCA =
     await RCA.findOneAndDelete({
       _id: rcaId,
@@ -887,3 +831,12 @@ export const deleteRCA = async (
 
   return deletedRCA;
 };
+
+export const updateRCA = async (id: string, organizationId: string, data: UpdateRCAData, role: "admin" | "employee") => {
+  const validated = validateRCAInput(data, false) as UpdateRCAData;
+  if (role !== "admin") throw new Error("Only administrators can modify an RCA");
+  return withRCAMutation(id, organizationId, () => updateRCAUnlocked(id, organizationId, validated, role));
+};
+
+export const deleteRCA = (id: string, organizationId: string) =>
+  withRCAMutation(id, organizationId, () => deleteRCAUnlocked(id, organizationId));

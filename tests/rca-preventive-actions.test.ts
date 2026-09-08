@@ -40,9 +40,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
   // ==========================================
 
   beforeAll(async () => {
-    console.log("==========================================");
-    console.log("RCA PREVENTIVE ACTIONS TEST SETUP");
-    console.log("==========================================");
 
     await connectDB();
 
@@ -59,8 +56,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
 
     organizationId = organization._id.toString();
 
-    console.log("ORGANIZATION:", organizationId);
-
     expect(organizationId).toBeTruthy();
 
     // ==========================================
@@ -75,17 +70,12 @@ describe("RCA Preventive Actions Integration Tests", () => {
       email: adminEmail,
       password: hashedPassword,
       role: "admin",
+      isEmailVerified: true,
       organizationId: organization._id,
       isActive: true,
     });
 
     adminId = admin._id.toString();
-
-    console.log("==========================================");
-    console.log("ADMIN CREATED DIRECTLY");
-    console.log("==========================================");
-    console.log("ADMIN:", adminId);
-    console.log("ADMIN ROLE:", admin.role);
 
     expect(adminId).toBeTruthy();
     expect(admin.role).toBe("admin");
@@ -103,15 +93,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
         organizationId,
       });
 
-    console.log("==========================================");
-    console.log("EMPLOYEE REGISTRATION");
-    console.log("==========================================");
-    console.log("STATUS:", employeeRegister.status);
-    console.log(
-      "BODY:",
-      JSON.stringify(employeeRegister.body, null, 2)
-    );
-
     expect(employeeRegister.status).toBe(201);
     expect(employeeRegister.body.success).toBe(true);
 
@@ -122,15 +103,11 @@ describe("RCA Preventive Actions Integration Tests", () => {
     expect(employeeToken).toBeTruthy();
     expect(employeeRegister.body.data.user.role).toBe("employee");
 
-    console.log("EMPLOYEE:", employeeId);
-    console.log(
-      "EMPLOYEE ROLE:",
-      employeeRegister.body.data.user.role
-    );
-
     // ==========================================
     // LOGIN ADMIN
     // ==========================================
+
+    await AuthUser.updateOne({ email: employeeEmail }, { $set: { isEmailVerified: true } });
 
     const adminLogin = await request(app)
       .post("/api/v1/auth/login")
@@ -138,15 +115,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
         email: adminEmail,
         password,
       });
-
-    console.log("==========================================");
-    console.log("ADMIN LOGIN");
-    console.log("==========================================");
-    console.log("STATUS:", adminLogin.status);
-    console.log(
-      "BODY:",
-      JSON.stringify(adminLogin.body, null, 2)
-    );
 
     expect(adminLogin.status).toBe(200);
     expect(adminLogin.body.success).toBe(true);
@@ -166,15 +134,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
         email: employeeEmail,
         password,
       });
-
-    console.log("==========================================");
-    console.log("EMPLOYEE LOGIN");
-    console.log("==========================================");
-    console.log("STATUS:", employeeLogin.status);
-    console.log(
-      "BODY:",
-      JSON.stringify(employeeLogin.body, null, 2)
-    );
 
     expect(employeeLogin.status).toBe(200);
     expect(employeeLogin.body.success).toBe(true);
@@ -207,15 +166,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
 
         organizationId,
       });
-
-    console.log("==========================================");
-    console.log("CREATE PROBLEM");
-    console.log("==========================================");
-    console.log("STATUS:", problemResponse.status);
-    console.log(
-      "BODY:",
-      JSON.stringify(problemResponse.body, null, 2)
-    );
 
     expect(problemResponse.status).toBe(201);
     expect(problemResponse.body.success).toBe(true);
@@ -250,15 +200,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
         organizationId,
       });
 
-    console.log("==========================================");
-    console.log("CREATE INCIDENT");
-    console.log("==========================================");
-    console.log("STATUS:", incidentResponse.status);
-    console.log(
-      "BODY:",
-      JSON.stringify(incidentResponse.body, null, 2)
-    );
-
     expect(incidentResponse.status).toBe(201);
     expect(incidentResponse.body.success).toBe(true);
 
@@ -271,16 +212,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
     // ==========================================
     // TEST DATA READY
     // ==========================================
-
-    console.log("==========================================");
-    console.log("TEST DATA READY");
-    console.log("==========================================");
-    console.log("Organization:", organizationId);
-    console.log("Admin:", adminId);
-    console.log("Employee:", employeeId);
-    console.log("Problem:", problemId);
-    console.log("Incident:", incidentId);
-    console.log("==========================================");
   });
 
   // ==========================================
@@ -326,8 +257,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
         organizationId,
       });
 
-    console.log("CREATE RCA RESPONSE:", response.body);
-
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
 
@@ -351,8 +280,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
       const response = await request(app)
         .get(`/api/v1/rcas/${rcaId}`)
         .set("Authorization", `Bearer ${adminToken}`);
-
-      console.log("GET RCA RESPONSE:", response.body);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -379,11 +306,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
           "Monitor switch health monthly",
         ],
       });
-
-    console.log(
-      "UPDATE PREVENTIVE ACTIONS RESPONSE:",
-      response.body
-    );
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -414,8 +336,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
           ],
         });
 
-      console.log("EMPLOYEE UPDATE RESPONSE:", response.body);
-
       expect(response.status).toBe(403);
       expect(response.body.success).toBe(false);
     }
@@ -436,11 +356,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
           "Valid preventive action",
         ],
       });
-
-    console.log(
-      "EMPTY PREVENTIVE ACTION RESPONSE:",
-      response.body
-    );
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -518,8 +433,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
           "Hardware diagnostics confirmed the faulty switch",
       });
 
-    console.log("COMPLETE RCA RESPONSE:", response.body);
-
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.status).toBe("Completed");
@@ -538,8 +451,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
       .send({
         status: "Approved",
       });
-
-    console.log("APPROVE RCA RESPONSE:", response.body);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -561,11 +472,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
             "Attempted modification after approval",
           ],
         });
-
-      console.log(
-        "APPROVED RCA UPDATE RESPONSE:",
-        response.body
-      );
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
@@ -606,9 +512,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
   // ==========================================
 
   afterAll(async () => {
-    console.log(
-      "RCA preventive actions test cleanup started."
-    );
 
     try {
       if (rcaId) {
@@ -648,10 +551,6 @@ describe("RCA Preventive Actions Integration Tests", () => {
       }
     } finally {
       await disconnectDB();
-
-      console.log(
-        "RCA preventive actions MongoDB connection closed."
-      );
     }
   });
 });

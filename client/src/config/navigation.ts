@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Microscope,
   AlertTriangle,
   Package,
   Clock,
@@ -41,6 +42,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: 'Incidents', to: '/incidents', icon: AlertTriangle },
       { label: 'Service Requests', to: '/service-requests', icon: Package },
+      { label: 'Root Cause Analysis', to: '/rcas', icon: Microscope },
       { label: 'Changes', to: '/changes', icon: GitBranch },
       { label: 'SLA', to: '/sla', icon: Clock },
     ],

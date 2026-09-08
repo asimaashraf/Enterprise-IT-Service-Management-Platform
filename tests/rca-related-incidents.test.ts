@@ -27,9 +27,6 @@ describe("RCA Related Incidents Integration Tests", () => {
   let rcaId: string;
 
   beforeAll(async () => {
-    console.log("==========================================");
-    console.log("RCA RELATED INCIDENTS TEST SETUP");
-    console.log("==========================================");
 
     await connectDB();
 
@@ -88,6 +85,8 @@ describe("RCA Related Incidents Integration Tests", () => {
     // ==========================================
     // LOGIN ADMIN
     // ==========================================
+
+    await AuthUser.updateOne({ email: employeeEmail }, { $set: { isEmailVerified: true } });
 
     const adminLogin = await request(app)
       .post("/api/v1/auth/login")
@@ -149,7 +148,7 @@ describe("RCA Related Incidents Integration Tests", () => {
       severity: "Major",
       status: "Resolved",
       reportedBy: adminId,
-      assignedTo: employeeId,
+      assignedTo: adminId,
       organizationId,
       resolution: "Faulty network hardware identified",
     });
@@ -169,21 +168,13 @@ describe("RCA Related Incidents Integration Tests", () => {
       severity: "Major",
       status: "Resolved",
       reportedBy: adminId,
-      assignedTo: employeeId,
+      assignedTo: adminId,
       organizationId,
       resolution: "Network hardware issue confirmed",
     });
 
     secondIncidentId =
       secondIncident._id.toString();
-
-    console.log("Admin:", adminId);
-    console.log("Employee:", employeeId);
-    console.log("Problem:", problemId);
-    console.log("Incident 1:", incidentId);
-    console.log("Incident 2:", secondIncidentId);
-
-    console.log("==========================================");
   });
 
   // ==========================================
@@ -222,11 +213,6 @@ describe("RCA Related Incidents Integration Tests", () => {
         status: "Draft",
       });
 
-    console.log(
-      "CREATE RCA RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
 
@@ -250,11 +236,6 @@ describe("RCA Related Incidents Integration Tests", () => {
         "Authorization",
         `Bearer ${adminToken}`
       );
-
-    console.log(
-      "GET RCA RESPONSE:",
-      response.body
-    );
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -295,11 +276,6 @@ describe("RCA Related Incidents Integration Tests", () => {
         relatedIncidents: [incidentId],
       });
 
-    console.log(
-      "UPDATE RELATED INCIDENTS RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
@@ -326,11 +302,6 @@ describe("RCA Related Incidents Integration Tests", () => {
         ],
       });
 
-    console.log(
-      "EMPLOYEE UPDATE RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(403);
     expect(response.body.success).toBe(false);
   });
@@ -351,11 +322,6 @@ describe("RCA Related Incidents Integration Tests", () => {
           "invalid-incident-id",
         ],
       });
-
-    console.log(
-      "INVALID INCIDENT RESPONSE:",
-      response.body
-    );
 
     expect([400, 404]).toContain(
       response.status
@@ -439,11 +405,6 @@ describe("RCA Related Incidents Integration Tests", () => {
         relatedIncidents: [incidentId],
       });
 
-    console.log(
-      "APPROVED RCA UPDATE RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(400);
 
     expect(response.body.message).toBe(
@@ -476,9 +437,6 @@ describe("RCA Related Incidents Integration Tests", () => {
   // ==========================================
 
   afterAll(async () => {
-    console.log(
-      "RCA related incidents test cleanup started."
-    );
 
     if (rcaId) {
       await RCA.deleteOne({
@@ -525,9 +483,5 @@ describe("RCA Related Incidents Integration Tests", () => {
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
     }
-
-    console.log(
-      "RCA related incidents MongoDB connection closed."
-    );
   });
 });

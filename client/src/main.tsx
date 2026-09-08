@@ -17,6 +17,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { PublicOnlyRoute } from '@/components/auth/PublicOnlyRoute'
 import { RoleGuard } from '@/components/auth/RoleGuard'
 import { AppBootstrap } from '@/components/auth/AppBootstrap'
+import { RCAsPage } from '@/pages/RCAsPage'
+import { RCADetailPage } from '@/pages/RCADetailPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { IncidentsPage } from '@/pages/IncidentsPage'
 import { IncidentDetailPage } from '@/pages/IncidentDetailPage'
@@ -110,6 +112,8 @@ if (!rootElement.innerHTML) {
                       path="/service-requests"
                       element={<ServiceRequestsPage />}
                     />
+                    <Route path="/rcas" element={<RCAsPage />} />
+                    <Route path="/rcas/:id" element={<RCADetailPage />} />
                     <Route path="/changes" element={<ChangesPage />} />
                     <Route path="/sla" element={<SLAPage />} />
                     <Route path="/sla/escalations" element={<RoleGuard allowedRoles={['admin']}><EscalationPoliciesPage /></RoleGuard>} />

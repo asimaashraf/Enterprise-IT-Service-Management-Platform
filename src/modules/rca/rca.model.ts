@@ -19,6 +19,8 @@ export type RCAStatus =
 
 export interface IRCA
   extends Document {
+  mutationLock?: string;
+
   rcaId: string;
 
   problem: mongoose.Types.ObjectId;
@@ -58,6 +60,8 @@ const rcaSchema =
       // ==========================================
       // RCA ID
       // ==========================================
+
+      mutationLock: { type: String, select: false },
 
       rcaId: {
         type: String,

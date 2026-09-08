@@ -26,9 +26,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
   let rcaId: string;
 
   beforeAll(async () => {
-    console.log("==========================================");
-    console.log("RCA CORRECTIVE ACTIONS TEST SETUP");
-    console.log("==========================================");
 
     await connectDB();
 
@@ -45,8 +42,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
 
     organizationId = organization._id.toString();
 
-    console.log("Organization:", organizationId);
-
     // ==========================================
     // CREATE ADMIN DIRECTLY; public registration always creates employees
     // ==========================================
@@ -58,6 +53,7 @@ describe("RCA Corrective Actions Integration Tests", () => {
       email: adminEmail,
       password: await bcrypt.hash("Password123!", 10),
       role: "admin",
+      isEmailVerified: true,
       organizationId,
     });
 
@@ -79,16 +75,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
         organizationId,
       });
 
-    console.log(
-      "EMPLOYEE REGISTER STATUS:",
-      employeeRegister.status
-    );
-
-    console.log(
-      "EMPLOYEE REGISTER RESPONSE:",
-      employeeRegister.body
-    );
-
     expect(employeeRegister.status).toBe(201);
     expect(employeeRegister.body.success).toBe(true);
 
@@ -98,15 +84,14 @@ describe("RCA Corrective Actions Integration Tests", () => {
     // LOGIN ADMIN
     // ==========================================
 
+    await AuthUser.updateOne({ email: employeeEmail }, { $set: { isEmailVerified: true } });
+
     const adminLogin = await request(app)
       .post("/api/v1/auth/login")
       .send({
         email: adminEmail,
         password: "Password123!",
       });
-
-    console.log("ADMIN LOGIN STATUS:", adminLogin.status);
-    console.log("ADMIN LOGIN RESPONSE:", adminLogin.body);
 
     expect(adminLogin.status).toBe(200);
     expect(adminLogin.body.success).toBe(true);
@@ -123,16 +108,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
         email: employeeEmail,
         password: "Password123!",
       });
-
-    console.log(
-      "EMPLOYEE LOGIN STATUS:",
-      employeeLogin.status
-    );
-
-    console.log(
-      "EMPLOYEE LOGIN RESPONSE:",
-      employeeLogin.body
-    );
 
     expect(employeeLogin.status).toBe(200);
     expect(employeeLogin.body.success).toBe(true);
@@ -169,21 +144,12 @@ describe("RCA Corrective Actions Integration Tests", () => {
       severity: "Major",
       status: "Resolved",
       reportedBy: adminId,
-      assignedTo: employeeId,
+      assignedTo: adminId,
       organizationId,
       resolution: "Faulty switch identified",
     });
 
     incidentId = incident._id.toString();
-
-    console.log("Admin:", adminId);
-    console.log("Employee:", employeeId);
-    console.log("Problem:", problemId);
-    console.log("Incident:", incidentId);
-    console.log("Admin token available:", !!adminToken);
-    console.log("Employee token available:", !!employeeToken);
-
-    console.log("==========================================");
   });
 
   // ==========================================
@@ -216,8 +182,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
         status: "Draft",
       });
 
-    console.log("CREATE RCA RESPONSE:", response.body);
-
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
 
@@ -239,8 +203,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
     const response = await request(app)
       .get(`/api/v1/rcas/${rcaId}`)
       .set("Authorization", `Bearer ${adminToken}`);
-
-    console.log("GET RCA RESPONSE:", response.body);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -272,11 +234,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
         ],
       });
 
-    console.log(
-      "UPDATE CORRECTIVE ACTIONS RESPONSE:",
-      response.body
-    );
-
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
@@ -304,8 +261,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
         ],
       });
 
-    console.log("EMPLOYEE UPDATE RESPONSE:", response.body);
-
     expect(response.status).toBe(403);
     expect(response.body.success).toBe(false);
   });
@@ -317,7 +272,7 @@ describe("RCA Corrective Actions Integration Tests", () => {
       .send({
         title: "Replace network switch",
         description: "Replace the failed switch",
-        assignedTo: employeeId,
+        assignedTo: adminId,
         dueDate: new Date(Date.now() + 86400000).toISOString(),
       });
 
@@ -358,21 +313,10 @@ describe("RCA Corrective Actions Integration Tests", () => {
       .put(`/api/v1/rcas/${rcaId}`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({
-        correctiveActions: [""],
+        correctiveActions: [42],
       });
 
-    console.log(
-      "EMPTY CORRECTIVE ACTION RESPONSE:",
-      response.body
-    );
-
-    /*
-     * The current RCA model allows empty strings because
-     * correctiveActions is currently defined as a string array.
-     *
-     * Therefore both 200 and 400 are accepted here.
-     */
-    expect([200, 400]).toContain(response.status);
+    expect(response.status).toBe(400);
   });
 
   // ==========================================
@@ -406,8 +350,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
           "Hardware diagnostics confirmed the faulty switch",
       });
 
-    console.log("COMPLETE RCA RESPONSE:", response.body);
-
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
@@ -425,8 +367,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
       .send({
         status: "Approved",
       });
-
-    console.log("APPROVE RCA RESPONSE:", response.body);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -447,11 +387,6 @@ describe("RCA Corrective Actions Integration Tests", () => {
           "Attempted modification after approval",
         ],
       });
-
-    console.log(
-      "APPROVED RCA UPDATE RESPONSE:",
-      response.body
-    );
 
     expect(response.status).toBe(400);
 
@@ -484,10 +419,8 @@ describe("RCA Corrective Actions Integration Tests", () => {
   // ==========================================
 
   afterAll(async () => {
-    console.log(
-      "RCA corrective actions test cleanup started."
-    );
 
+    await RCACorrectiveAction.deleteMany({ organizationId });
     if (rcaId) {
       await RCA.deleteOne({
         _id: rcaId,
@@ -527,9 +460,5 @@ describe("RCA Corrective Actions Integration Tests", () => {
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
     }
-
-    console.log(
-      "RCA corrective actions MongoDB connection closed."
-    );
   });
 });

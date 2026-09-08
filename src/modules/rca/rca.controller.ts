@@ -1,3 +1,4 @@
+import { allowedInput, rcaUpdateFields } from "./rca.validation";
 import { Response } from "express";
 
 import {
@@ -41,15 +42,16 @@ export const createRCAController = async (
       });
     }
 
+    const body = allowedInput(req.body, [...rcaUpdateFields, "rcaId", "identifiedBy", "organizationId"]);
     const rca = await createRCA({
-      ...req.body,
+      ...body,
 
       // Always take organization from authenticated user
       organizationId: req.user.organizationId,
 
       // Default identifiedBy to current authenticated user
       identifiedBy:
-        req.body.identifiedBy || req.user.id,
+        body.identifiedBy === undefined ? req.user.id : body.identifiedBy,
     });
 
     return res.status(201).json({

@@ -1,3 +1,6 @@
+import RCA from "../src/modules/rca/rca.model";
+import Problem from "../src/modules/problem/problem.model";
+import AuthUser from "../src/modules/auth/auth.model";
 import request from "supertest";
 import mongoose from "mongoose";
 import app from "../src/app";
@@ -38,9 +41,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
   // ==================================================
 
   beforeAll(async () => {
-    console.log("==========================================");
-    console.log("RCA LESSONS LEARNED TEST SETUP");
-    console.log("==========================================");
 
     await connectDB();
 
@@ -70,11 +70,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
 
     organizationId =
       organization._id.toString();
-
-    console.log(
-      "Organization:",
-      organizationId
-    );
 
     // ==================================================
     // REGISTER ADMIN
@@ -107,16 +102,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
           organizationId,
         });
 
-    console.log(
-      "EMPLOYEE REGISTER STATUS:",
-      employeeRegister.status
-    );
-
-    console.log(
-      "EMPLOYEE REGISTER RESPONSE:",
-      employeeRegister.body
-    );
-
     expect(
       employeeRegister.status
     ).toBe(201);
@@ -131,6 +116,8 @@ describe("RCA Lessons Learned Integration Tests", () => {
     // LOGIN ADMIN
     // ==================================================
 
+    await AuthUser.updateOne({ email: employeeEmail }, { $set: { isEmailVerified: true } });
+
     const adminLogin =
       await request(app)
         .post("/api/v1/auth/login")
@@ -138,16 +125,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
           email: adminEmail,
           password: "Password123!",
         });
-
-    console.log(
-      "ADMIN LOGIN STATUS:",
-      adminLogin.status
-    );
-
-    console.log(
-      "ADMIN LOGIN RESPONSE:",
-      adminLogin.body
-    );
 
     expect(
       adminLogin.status
@@ -169,16 +146,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
           email: employeeEmail,
           password: "Password123!",
         });
-
-    console.log(
-      "EMPLOYEE LOGIN STATUS:",
-      employeeLogin.status
-    );
-
-    console.log(
-      "EMPLOYEE LOGIN RESPONSE:",
-      employeeLogin.body
-    );
 
     expect(
       employeeLogin.status
@@ -218,16 +185,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
 
           organizationId,
         });
-
-    console.log(
-      "PROBLEM CREATE STATUS:",
-      problemResponse.status
-    );
-
-    console.log(
-      "PROBLEM CREATE RESPONSE:",
-      problemResponse.body
-    );
 
     expect(
       problemResponse.status
@@ -286,16 +243,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
           organizationId,
         });
 
-    console.log(
-      "CREATE RCA STATUS:",
-      rcaResponse.status
-    );
-
-    console.log(
-      "CREATE RCA RESPONSE:",
-      rcaResponse.body
-    );
-
     expect(
       rcaResponse.status
     ).toBe(201);
@@ -323,11 +270,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             "Authorization",
             `Bearer ${adminToken}`
           );
-
-      console.log(
-        "GET RCA LESSONS RESPONSE:",
-        response.body
-      );
 
       expect(response.status).toBe(200);
 
@@ -364,11 +306,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             ],
           });
 
-      console.log(
-        "UPDATE LESSONS RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(200);
 
       expect(
@@ -404,11 +341,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             ],
           });
 
-      console.log(
-        "EMPLOYEE LESSONS UPDATE RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(403);
       expect(response.body.success).toBe(false);
     }
@@ -439,11 +371,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             ],
           });
 
-      console.log(
-        "CLEAN LESSONS RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(200);
 
       expect(
@@ -472,11 +399,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
               "Unauthorized lesson",
             ],
           });
-
-      console.log(
-        "UNAUTHENTICATED LESSONS RESPONSE:",
-        response.body
-      );
 
       expect(
         response.status
@@ -514,11 +436,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             status: "Completed",
           });
 
-      console.log(
-        "COMPLETE RCA WITH LESSONS RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(200);
 
       expect(
@@ -551,11 +468,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             status: "Approved",
           });
 
-      console.log(
-        "APPROVE RCA WITH LESSONS RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(200);
 
       expect(
@@ -586,11 +498,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             ],
           });
 
-      console.log(
-        "APPROVED LESSONS UPDATE RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(400);
 
       expect(
@@ -618,11 +525,6 @@ describe("RCA Lessons Learned Integration Tests", () => {
             `Bearer ${adminToken}`
           );
 
-      console.log(
-        "FINAL LESSONS RESPONSE:",
-        response.body
-      );
-
       expect(response.status).toBe(200);
 
       expect(
@@ -643,35 +545,13 @@ describe("RCA Lessons Learned Integration Tests", () => {
   // ==================================================
 
   afterAll(async () => {
-    console.log(
-      "RCA Lessons Learned test cleanup started."
-    );
-
-    /*
-     * Delete the test organization.
-     *
-     * Depending on your project's Organization model,
-     * related users/problems/RCAs may remain.
-     * For now, close the MongoDB connection cleanly.
-     */
 
     if (organizationId) {
-      try {
-        await Organization.findByIdAndDelete(
-          organizationId
-        );
-      } catch (error) {
-        console.log(
-          "Organization cleanup failed:",
-          error
-        );
-      }
+      await RCA.deleteMany({ organizationId });
+      await Problem.deleteMany({ organizationId });
+      await AuthUser.deleteMany({ organizationId });
+      await Organization.deleteOne({ _id: organizationId });
     }
-
     await mongoose.connection.close();
-
-    console.log(
-      "RCA Lessons Learned MongoDB connection closed."
-    );
   });
 });

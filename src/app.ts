@@ -195,8 +195,18 @@ app.use(
 // ROOT CAUSE ANALYSIS
 // ==========================================
 
+// Normalize parser failures only for RCA; other modules keep their behavior.
+const rcaJsonErrorHandler: express.ErrorRequestHandler = (error, _req, res, next) => {
+  if (error?.type === "entity.parse.failed") {
+    res.status(400).json({ success: false, message: "Request body must be a valid JSON object" });
+    return;
+  }
+  next(error);
+};
+
 app.use(
   "/api/v1/rcas",
+  rcaJsonErrorHandler,
   rcaRoutes
 );
 

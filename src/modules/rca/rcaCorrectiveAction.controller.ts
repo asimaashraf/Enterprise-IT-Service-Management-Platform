@@ -1,3 +1,4 @@
+import { inputObject } from "./rca.validation";
 import { Response } from "express";
 
 import {
@@ -44,6 +45,7 @@ export const createCorrectiveActionController =
         });
       }
 
+      inputObject(req.body);
       const rcaId = String(
         req.params.id
       );

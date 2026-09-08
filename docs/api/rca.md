@@ -260,11 +260,11 @@ All RCA routes currently use the `authenticate` middleware.
 
 
 
-There is no `authorize("admin")` middleware in the RCA routes.
+All RCA and corrective-action mutation routes use `authorize("admin")`.
 
 
 
-Therefore, authorization beyond authentication is handled by the RCA service and the current route configuration.
+ADMIN is the operational role. EMPLOYEE has organization-scoped read-only RCA and corrective-action access. Backend authorization is authoritative.
 
 
 
@@ -272,7 +272,7 @@ Therefore, authorization beyond authentication is handled by the RCA service and
 
 |---|:---:|:---:|
 
-| Create RCA | Yes | Yes |
+| Create RCA | Yes | No |
 
 | View all RCAs | Yes | Yes |
 
@@ -280,13 +280,13 @@ Therefore, authorization beyond authentication is handled by the RCA service and
 
 | View RCA by Problem | Yes | Yes |
 
-| Update RCA | Yes | Yes |
+| Update RCA | Yes | No |
 
-| Delete RCA | Yes | Yes |
+| Delete RCA | Yes | No |
 
 
 
-> Important: The current implementation does not restrict RCA deletion to admins. If the intended business rule is "Admin only", the route should later use `authorize("admin")`.
+> RCA approval and all corrective-action mutations are ADMIN-only. Approved RCAs cannot be modified or deleted. Corrective-action assignment requires an active same-tenant ADMIN.
 
 
 
@@ -1762,55 +1762,7 @@ Required.
 
 
 
-The current route only uses:
-
-
-
-```text
-
-authenticate
-
-```
-
-
-
-There is currently no:
-
-
-
-```text
-
-authorize("admin")
-
-```
-
-
-
-Therefore, an authenticated employee can currently reach the delete controller.
-
-
-
-If the intended requirement is \*\*Admin only\*\*, change the route to:
-
-
-
-```ts
-
-router.delete(
-
-&#x20; "/:id",
-
-&#x20; authenticate,
-
-&#x20; authorize("admin"),
-
-&#x20; deleteRCAController
-
-);
-
-```
-
-
+The route requires authentication and `authorize("admin")`. EMPLOYEE requests return 403. Approved RCAs cannot be deleted.
 
 \---
 
@@ -2622,7 +2574,7 @@ Invalid RCA ID
 
 \- \[ ] Delete RCA from another organization
 
-\- \[ ] Verify current employee delete behavior
+\- \[ ] Verify employee deletion is rejected with 403
 
 \- \[ ] Verify admin delete behavior
 
@@ -2844,51 +2796,7 @@ const rca = await createRCA({
 
 
 
-The current RCA route allows any authenticated user to reach the delete controller:
-
-
-
-```ts
-
-router.delete(
-
-&#x20; "/:id",
-
-&#x20; authenticate,
-
-&#x20; deleteRCAController
-
-);
-
-```
-
-
-
-If RCA deletion should be Admin-only, use:
-
-
-
-```ts
-
-router.delete(
-
-&#x20; "/:id",
-
-&#x20; authenticate,
-
-&#x20; authorize("admin"),
-
-&#x20; deleteRCAController
-
-);
-
-```
-
-
-
-This should be decided before the frontend implements role-specific delete controls.
-
-
+RCA deletion is ADMIN-only through `authorize("admin")`. EMPLOYEE remains a read-only RCA consumer; hiding frontend controls does not replace this backend restriction.
 
 \---
 

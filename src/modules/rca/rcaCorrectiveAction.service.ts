@@ -1,5 +1,6 @@
+import { validateActionInput, validId } from "./rca.validation";
+import { withRCAMutation } from "./rca.mutation";
 
-import mongoose from "mongoose";
 
 import RCACorrectiveAction, {
   CorrectiveActionStatus,
@@ -39,7 +40,7 @@ export interface UpdateCorrectiveActionData {
 const isValidObjectId = (
   value: string
 ): boolean => {
-  return mongoose.Types.ObjectId.isValid(value);
+  return validId(value);
 };
 
 // ==========================================
@@ -88,11 +89,12 @@ const getAssignedUser = async (
     _id: userId,
     organizationId,
     isActive: true,
+    role: "admin",
   });
 
   if (!user) {
     throw new Error(
-      "Assigned user not found, inactive, or does not belong to this organization"
+      "Assigned user must be an active ADMIN in this organization"
     );
   }
 
@@ -103,7 +105,7 @@ const getAssignedUser = async (
 // CREATE CORRECTIVE ACTION
 // ==========================================
 
-export const createCorrectiveAction =
+const createCorrectiveActionUnlocked =
   async (
     data: CreateCorrectiveActionData
   ): Promise<IRCAcorrectiveAction> => {
@@ -224,14 +226,17 @@ export const createCorrectiveAction =
     await action.populate([
       {
         path: "assignedTo",
+        match: { organizationId },
         select: "name email role",
       },
       {
         path: "createdBy",
+        match: { organizationId },
         select: "name email role",
       },
       {
         path: "rca",
+        match: { organizationId },
         select:
           "rcaId status problem rootCause",
       },
@@ -261,10 +266,12 @@ export const getCorrectiveActions =
       })
         .populate({
           path: "assignedTo",
+          match: { organizationId },
           select: "name email role",
         })
         .populate({
           path: "createdBy",
+          match: { organizationId },
           select: "name email role",
         })
         .sort({
@@ -304,10 +311,12 @@ export const getCorrectiveActionById =
       })
         .populate({
           path: "assignedTo",
+          match: { organizationId },
           select: "name email role",
         })
         .populate({
           path: "createdBy",
+          match: { organizationId },
           select: "name email role",
         });
 
@@ -318,7 +327,7 @@ export const getCorrectiveActionById =
 // UPDATE CORRECTIVE ACTION
 // ==========================================
 
-export const updateCorrectiveAction =
+const updateCorrectiveActionUnlocked =
   async (
     rcaId: string,
     actionId: string,
@@ -466,22 +475,10 @@ export const updateCorrectiveAction =
 
       if (
         data.status ===
-        "Completed"
+        "Completed" && existingAction.status !== "Completed"
       ) {
         updateData.completedAt =
           new Date();
-      }
-
-      // ----------------------------------------
-      // MOVED AWAY FROM COMPLETED
-      // ----------------------------------------
-
-      if (
-        data.status !==
-        "Completed"
-      ) {
-        updateData.completedAt =
-          undefined;
       }
     }
 
@@ -498,6 +495,7 @@ export const updateCorrectiveAction =
         },
         {
           $set: updateData,
+          ...(data.status !== undefined && data.status !== "Completed" ? { $unset: { completedAt: 1 } } : {}),
         },
         {
           new: true,
@@ -506,10 +504,12 @@ export const updateCorrectiveAction =
       )
         .populate({
           path: "assignedTo",
+          match: { organizationId },
           select: "name email role",
         })
         .populate({
           path: "createdBy",
+          match: { organizationId },
           select: "name email role",
         });
 
@@ -520,7 +520,7 @@ export const updateCorrectiveAction =
 // DELETE CORRECTIVE ACTION
 // ==========================================
 
-export const deleteCorrectiveAction =
+const deleteCorrectiveActionUnlocked =
   async (
     rcaId: string,
     actionId: string,
@@ -558,3 +558,16 @@ export const deleteCorrectiveAction =
 
     return deletedAction;
   };
+
+export const createCorrectiveAction = async (data: CreateCorrectiveActionData) => {
+  const validated = validateActionInput(data, true) as unknown as CreateCorrectiveActionData;
+  return withRCAMutation(validated.rcaId, validated.organizationId, () => createCorrectiveActionUnlocked(validated));
+};
+
+export const updateCorrectiveAction = async (id: string, actionId: string, organizationId: string, data: UpdateCorrectiveActionData) => {
+  const validated = validateActionInput(data, false) as UpdateCorrectiveActionData;
+  return withRCAMutation(id, organizationId, () => updateCorrectiveActionUnlocked(id, actionId, organizationId, validated));
+};
+
+export const deleteCorrectiveAction = (id: string, actionId: string, organizationId: string) =>
+  withRCAMutation(id, organizationId, () => deleteCorrectiveActionUnlocked(id, actionId, organizationId));
