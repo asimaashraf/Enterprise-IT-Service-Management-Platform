@@ -693,9 +693,12 @@ Phase 13 builds on the Phase 5A organization/support foundation and completes an
 
 ## Tasks
 
-- [ ] Build Organization Profile screen
-- [ ] Build Department Management UI
-- [ ] Build Support Team Management UI
+- [x] Build Organization Profile screen
+  - Phase 13B: profile inside `/settings`; ADMIN edits name/slug/description, EMPLOYEE reads only. Tenant is resolved from the authenticated session.
+- [x] Build Department Management UI
+  - Phase 13B: ADMIN-only `/settings/departments`; create/edit/status/delete, search, status filter, confirmation, and session-scoped queries. No user assignment relationship.
+- [x] Build Support Team Management UI
+  - Existing Phase 5A `/support-teams` implementation confirmed in code: CRUD, active status, and active ADMIN membership selection behind RoleGuard.
 - [x] Build User Management screen
   - Admin-only page listing all users in the tenant
   - Invite Employee dialog (POST /api/v1/invitations)
@@ -706,13 +709,22 @@ Phase 13 builds on the Phase 5A organization/support foundation and completes an
   - Search by name or email, role filter, status filter
   - Self-action guards (cannot deactivate/block/demote your own account)
   - Last-admin guards prevent orphaning the tenant's admin count
-- [ ] Build Role Management controls
+- [x] Build Role Management controls
+  - Phase 13C: ADMIN/EMPLOYEE promotion and demotion through dedicated User Management actions, with self-action and last-active-admin guards. No custom roles, role CRUD, or permissions matrix.
 - [x] Restrict administrative interfaces to appropriate roles
   - `RoleGuard` component wraps `/users` route
   - Navigation filters `User Management` from sidebar for non-admin users
   - Backend remains the authoritative security boundary on every endpoint
-- [ ] Build Audit Log Viewer
-- [ ] Ensure audit logs remain tenant-scoped
+- [x] Build Audit Log Viewer
+  - Phase 13D: ADMIN-only `/settings/audit-logs`, Settings card, local search/filters and 25-record pages, responsive table/cards, and read-only metadata dialog.
+- [x] Ensure audit logs remain tenant-scoped
+  - Backend controller derives organization from JWT; repository filters by organization. Existing `tests/audit.test.ts` covers cross-tenant exclusion and EMPLOYEE 403. Frontend audit queries include tenant/user/role/session version, shared safely with Asset audit history.
+
+Phase 13B verification: frontend typecheck (including explicit app project check), lint, and production build passed; lint retains four pre-existing User Management hook warnings and build reports a chunk-size warning. Browser CRUD, role/session transition, and responsive checks remain pending; no connected browser was available.
+
+Phase 13C implementation: added name/email-only user editing; centralized session-scoped user, invitation, team, and operational-assignee queries across management, Changes, Assets, escalation, and RCA consumers. User/team mutations invalidate exact affected queries. Team deletion preserves backend 409 feedback; inactive escalation targets and unavailable team members require valid selections. Existing assignment contracts and Settings/navigation guards are preserved.
+
+Phase 13D verification: frontend typecheck, explicit app TypeScript check, lint, production build, diff check, and five focused audit contract tests pass. Four existing User Management lint warnings and bundle-size warning remain. Backend files were not changed; backend audit coverage was inspected, not rerun. The API still loads the entire tenant dataset: local paging limits rendered rows, not transfer/memory usage. There are no server filters, pagination, detail, or export endpoints. Phase 13 implementation is ready for final authenticated and responsive manual verification.
 
 ## Exit Criteria
 

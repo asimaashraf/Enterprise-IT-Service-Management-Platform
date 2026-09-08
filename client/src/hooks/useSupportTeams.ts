@@ -1,66 +1,82 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-
-import { eligibleOperationalAssigneeKey } from '@/hooks/useEligibleOperationalAssignees'
+import { directoryKeys } from '@/hooks/useUsers'
+import {
+  useSettingsScope,
+  settingsQueryOptions,
+} from '@/hooks/useSettingsScope'
 import { supportTeamApi } from '@/lib/supportTeamApi'
+import { settingsError } from '@/lib/settingsApi'
 import type {
   CreateSupportTeamPayload,
   UpdateSupportTeamPayload,
+  SupportTeam,
 } from '@/types/supportTeam'
 
-export const supportTeamsKey = ['support-teams'] as const
-
-function useInvalidateSupportTeamQueries() {
-  const queryClient = useQueryClient()
-  return () => {
-    queryClient.invalidateQueries({ queryKey: supportTeamsKey })
-    queryClient.invalidateQueries({ queryKey: eligibleOperationalAssigneeKey })
-  }
+export function useSupportTeams() {
+  const scope = useSettingsScope()
+  return useQuery({
+    ...settingsQueryOptions,
+    queryKey: directoryKeys.teams(scope.key),
+    queryFn: ({ signal }) => supportTeamApi.list(signal),
+    enabled: scope.isAdmin,
+  })
 }
 
-export function useSupportTeams() {
-  return useQuery({
-    queryKey: supportTeamsKey,
-    queryFn: () => supportTeamApi.list(),
+function useSupportTeamMutation<T>(
+  operation: (payload: T) => Promise<SupportTeam>,
+  message: string,
+  onSuccess?: () => void,
+) {
+  const scope = useSettingsScope()
+  const client = useQueryClient()
+  return useMutation({
+    mutationKey: directoryKeys.teams(scope.key),
+    mutationFn: (payload: T) => {
+      scope.assertAdmin()
+      return operation(payload)
+    },
+    onSuccess: async () => {
+      if (!scope.isCurrent()) return
+      await Promise.all([
+        client.invalidateQueries({
+          queryKey: directoryKeys.teams(scope.key),
+          exact: true,
+        }),
+        client.invalidateQueries({
+          queryKey: directoryKeys.assignees(scope.key),
+          exact: true,
+        }),
+      ])
+      if (!scope.isCurrent()) return
+      toast.success(message)
+      onSuccess?.()
+    },
+    onError: (error) => {
+      if (scope.isCurrent()) toast.error(settingsError(error))
+    },
   })
 }
 
 export function useCreateSupportTeam(onSuccess?: () => void) {
-  const invalidate = useInvalidateSupportTeamQueries()
-  return useMutation({
-    mutationFn: (payload: CreateSupportTeamPayload) => supportTeamApi.create(payload),
-    onSuccess: () => {
-      toast.success('Support team created')
-      invalidate()
-      onSuccess?.()
-    },
-    onError: (error: Error) => toast.error(error.message || 'Unable to create support team'),
-  })
+  return useSupportTeamMutation(
+    (payload: CreateSupportTeamPayload) => supportTeamApi.create(payload),
+    'Support team created',
+    onSuccess,
+  )
 }
-
 export function useUpdateSupportTeam(onSuccess?: () => void) {
-  const invalidate = useInvalidateSupportTeamQueries()
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateSupportTeamPayload }) =>
+  return useSupportTeamMutation(
+    ({ id, payload }: { id: string; payload: UpdateSupportTeamPayload }) =>
       supportTeamApi.update(id, payload),
-    onSuccess: () => {
-      toast.success('Support team updated')
-      invalidate()
-      onSuccess?.()
-    },
-    onError: (error: Error) => toast.error(error.message || 'Unable to update support team'),
-  })
+    'Support team updated',
+    onSuccess,
+  )
 }
-
 export function useDeleteSupportTeam(onSuccess?: () => void) {
-  const invalidate = useInvalidateSupportTeamQueries()
-  return useMutation({
-    mutationFn: (id: string) => supportTeamApi.remove(id),
-    onSuccess: () => {
-      toast.success('Support team deleted')
-      invalidate()
-      onSuccess?.()
-    },
-    onError: (error: Error) => toast.error(error.message || 'Unable to delete support team'),
-  })
+  return useSupportTeamMutation(
+    (id: string) => supportTeamApi.remove(id),
+    'Support team deleted',
+    onSuccess,
+  )
 }

@@ -191,4 +191,36 @@ describe("Department API", () => {
         response.body.data._id;
     }
   );
+
+  it("allows valid department updates and active state changes", async () => {
+    const adminToken = jwt.sign(
+      { id: "test-admin-id", email: "admin@test.com", role: "admin", organizationId },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1h" }
+    );
+    const response = await request(app)
+      .put(`/api/v1/departments/${createdDepartmentId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ name: `Updated Department ${Date.now()}`, description: "Updated", isActive: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.isActive).toBe(false);
+    expect(response.body.data.organizationId).toBe(organizationId);
+  });
+
+  it("rejects protected and unknown department update fields", async () => {
+    const adminToken = jwt.sign(
+      { id: "test-admin-id", email: "admin@test.com", role: "admin", organizationId },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1h" }
+    );
+    const response = await request(app)
+      .put(`/api/v1/departments/${createdDepartmentId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ organizationId: "507f1f77bcf86cd799439011", unknown: true });
+
+    expect(response.status).toBe(400);
+    const department = await Department.findById(createdDepartmentId);
+    expect(department?.organizationId.toString()).toBe(organizationId);
+  });
 });

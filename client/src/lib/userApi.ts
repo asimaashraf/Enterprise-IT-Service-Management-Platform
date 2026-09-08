@@ -2,6 +2,7 @@ import apiClient from '@/lib/apiClient'
 import type {
   ApiEnvelope,
   UserListItem,
+  UpdateUserProfilePayload,
   UserRole,
   EligibleOperationalAssignee,
   InvitationDetail,
@@ -22,18 +23,27 @@ const unwrap = <T>(response: { data: unknown }): T => {
  * never supplies one.
  */
 export const userApi = {
-  async list(): Promise<UserListItem[]> {
+  async list(signal?: AbortSignal): Promise<UserListItem[]> {
     const response = await apiClient.get<ApiEnvelope<UserListItem[]>>(
       '/users',
+      { signal },
     )
     return unwrap<UserListItem[]>(response)
   },
 
-  async eligibleAssignees(): Promise<EligibleOperationalAssignee[]> {
+  async eligibleAssignees(signal?: AbortSignal): Promise<EligibleOperationalAssignee[]> {
     const response = await apiClient.get<ApiEnvelope<EligibleOperationalAssignee[]>>(
       '/users/eligible-assignees',
+      { signal },
     )
     return unwrap<EligibleOperationalAssignee[]>(response)
+  },
+
+  async updateProfile(id: string, payload: UpdateUserProfilePayload): Promise<UserListItem> {
+    const { name, email } = payload
+    return unwrap<UserListItem>(await apiClient.put<ApiEnvelope<UserListItem>>(
+      `/users/${encodeURIComponent(id)}`, { name: name.trim(), email: email.trim().toLowerCase() },
+    ))
   },
 
   async activate(id: string): Promise<UserListItem> {
@@ -75,9 +85,10 @@ export const userApi = {
  *   browser.
  */
 export const invitationApi = {
-  async list(): Promise<InvitationDetail[]> {
+  async list(signal?: AbortSignal): Promise<InvitationDetail[]> {
     const response = await apiClient.get<ApiEnvelope<InvitationDetail[]>>(
       '/invitations',
+      { signal },
     )
     return unwrap<InvitationDetail[]>(response)
   },

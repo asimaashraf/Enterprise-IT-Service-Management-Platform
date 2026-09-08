@@ -31,6 +31,8 @@ import { AssetsPage } from '@/pages/AssetsPage'
 import { KnowledgeBasePage } from '@/pages/KnowledgeBasePage'
 import { AnalyticsPage } from '@/pages/AnalyticsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { DepartmentsPage } from '@/pages/DepartmentsPage'
+import { AuditLogsPage } from '@/pages/AuditLogsPage'
 import { UserManagementPage } from '@/pages/UserManagementPage'
 import { SupportTeamsPage } from '@/pages/SupportTeamsPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -148,6 +150,8 @@ if (!rootElement.innerHTML) {
                     />
 
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/settings/departments" element={<RoleGuard allowedRoles={['admin']}><DepartmentsPage /></RoleGuard>} />
+                    <Route path="/settings/audit-logs" element={<RoleGuard allowedRoles={['admin']}><AuditLogsPage /></RoleGuard>} />
                     {/*
                      * Showcase — Phase 3 component library demonstration.
                      * Visible to all authenticated users.

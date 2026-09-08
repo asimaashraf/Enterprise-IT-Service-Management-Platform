@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Eye, GitBranch, Pencil, Plus } from 'lucide-react'
 import { useSelector } from 'react-redux'
@@ -15,7 +14,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAssets } from '@/hooks/useAssets'
 import { useChanges, useCreateChange, useUpdateChange } from '@/hooks/useChanges'
-import { userApi } from '@/lib/userApi'
+import { useUsers } from '@/hooks/useUsers'
 import type { RootState } from '@/store'
 import { changeRisks, changeStatuses, changeTypes, getChangeUserDisplay, getChangeUserId, normalizeChangeStatus, type Change, type ChangeFilters, type CreateChangePayload, type UpdateChangePayload } from '@/types/change'
 
@@ -49,7 +48,7 @@ export function ChangesPage() {
   const assetsQuery = useAssets()
   const createMutation = useCreateChange()
   const updateMutation = useUpdateChange()
-  const employeesQuery = useQuery({ queryKey: ['users', 'list'], queryFn: userApi.list, enabled: isAdmin })
+  const employeesQuery = useUsers()
   const [filters, setFilters] = useState<ChangeFilters>({ search: '', type: '', risk: '', status: '' })
   const [formOpen, setFormOpen] = useState(false)
   const [editingChange, setEditingChange] = useState<Change | null>(null)

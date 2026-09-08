@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,8 @@ import { Label } from '@/components/ui/label'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 import { invitationApi } from '@/lib/userApi'
+import { directoryKeys, useInvalidateUsers } from '@/hooks/useUsers'
+import { useSettingsScope } from '@/hooks/useSettingsScope'
 import type { InvitationValidation } from '@/types/auth'
 
 const acceptSchema = z
@@ -46,6 +48,9 @@ const FEATURES = [
 const CAPABILITIES = ['Secure', 'Multi-tenant', 'Role-based access']
 
 export function AcceptInvitePage() {
+  const scope = useSettingsScope()
+  const queryClient = useQueryClient()
+  const invalidateUsers = useInvalidateUsers()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token') ?? ''
@@ -83,6 +88,10 @@ export function AcceptInvitePage() {
     mutationFn: (vars: { name: string; password: string }) =>
       invitationApi.accept({ token, name: vars.name, password: vars.password }),
     onSuccess: (data) => {
+      if (scope.isCurrent() && scope.user?.organizationId === data.user.organizationId) {
+        void invalidateUsers()
+        void queryClient.invalidateQueries({ queryKey: directoryKeys.invitations(scope.key), exact: true })
+      }
       setAccepted({ name: data.user.name, email: data.user.email })
     },
     onError: (err: Error) => {

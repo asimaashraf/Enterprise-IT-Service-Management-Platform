@@ -185,6 +185,33 @@ describe("Admin User Management", () => {
   // ================================================================
 
   describe("PUT /api/v1/users/:id", () => {
+    it("cannot change role, tenant, password, or active state through generic update", async () => {
+      const target = await createTestUser({
+        name: "Protected Update",
+        email: `protected.update.${Date.now()}@example.com`,
+        password: "Password1",
+        role: "employee",
+        organizationId: adminOrgId,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/users/${target._id.toString()}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          role: "admin",
+          organizationId: secondOrgId,
+          password: "ChangedPassword1",
+          isActive: false,
+        });
+
+      expect(res.status).toBe(400);
+      const after = await AuthUser.findById(target._id);
+      expect(after?.role).toBe("employee");
+      expect(after?.organizationId.toString()).toBe(adminOrgId);
+      expect(after?.isActive).toBe(true);
+      await target.deleteOne();
+    });
+
     it("admin can update a user in their organization", async () => {
       // Create a new user to update.
       const target = await createTestUser({

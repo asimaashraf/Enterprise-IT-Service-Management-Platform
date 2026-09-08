@@ -29,6 +29,24 @@ interface UpdateUserData {
   isActive?: boolean;
 }
 
+const userProfileFields = new Set(["name", "email"]);
+
+const sanitizeUserProfileUpdate = (data: unknown): UpdateUserData => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("User profile update must be an object");
+  }
+
+  const update: UpdateUserData = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith("$") || key.includes(".") || !userProfileFields.has(key)) {
+      throw new Error(`Unsupported user profile field: ${key}`);
+    }
+    if (typeof value !== "string") throw new Error(`${key} must be a string`);
+    update[key as "name" | "email"] = value;
+  }
+  return update;
+};
+
 // ==========================================
 // CREATE USER
 //
@@ -147,7 +165,7 @@ export const updateUser = async (
     throw new Error("Invalid organization ID");
   }
 
-  const updateData: UpdateUserData = { ...data };
+  const updateData = sanitizeUserProfileUpdate(data);
 
   if (updateData.email) {
     updateData.email = updateData.email.toLowerCase().trim();

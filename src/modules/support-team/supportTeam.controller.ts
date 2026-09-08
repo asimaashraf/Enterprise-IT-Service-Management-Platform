@@ -199,7 +199,10 @@ export const deleteSupportTeamController = async (
       data: team,
     });
   } catch (error: any) {
-    return res.status(400).json({
+    const status = error.message.includes("referenced by an escalation policy")
+      ? 409
+      : 400;
+    return res.status(status).json({
       success: false,
       message: error.message,
     });

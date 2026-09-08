@@ -6,6 +6,7 @@ import { connectDB } from "../src/config/db";
 import AuthUser from "../src/modules/auth/auth.model";
 import Organization from "../src/modules/organization/organization.model";
 import SupportTeam from "../src/modules/support-team/supportTeam.model";
+import IncidentEscalationPolicy from "../src/modules/incident-escalation/incidentEscalation.model";
 import {
   createTestUser,
   TEST_ADMIN_EMAIL,
@@ -93,6 +94,9 @@ describe("Support Team API", () => {
   });
 
   afterAll(async () => {
+    await IncidentEscalationPolicy.deleteMany({
+      organizationId: { $in: [organizationId, otherOrganizationId].filter(Boolean) },
+    });
     await SupportTeam.deleteMany({
       _id: { $in: [createdTeamId, otherTeamId].filter(Boolean) },
     });
@@ -198,6 +202,27 @@ describe("Support Team API", () => {
         "You are not authorized to perform this action"
       );
     }
+  });
+
+  it("prevents deleting a team referenced by an escalation policy", async () => {
+    await IncidentEscalationPolicy.create({
+      name: uniqueName("Referenced Team Policy"),
+      organizationId,
+      priority: "High",
+      escalationLevel: "Level 1",
+      thresholdMinutes: 15,
+      targetType: "SupportTeam",
+      targetTeam: createdTeamId,
+      createdBy: adminToken ? new mongoose.Types.ObjectId() : undefined,
+    });
+
+    const response = await request(app)
+      .delete(`/api/v1/support-teams/${createdTeamId}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toMatch(/referenced by an escalation policy/i);
+    expect(await SupportTeam.exists({ _id: createdTeamId })).not.toBeNull();
   });
 
   it("keeps support team reads tenant-scoped while allowing authenticated employees to read their tenant", async () => {

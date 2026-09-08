@@ -86,6 +86,11 @@ export interface UserListItem {
   updatedAt: string
 }
 
+export interface UpdateUserProfilePayload {
+  name: string
+  email: string
+}
+
 // --- API envelope ---
 
 export interface ApiEnvelope<T> {

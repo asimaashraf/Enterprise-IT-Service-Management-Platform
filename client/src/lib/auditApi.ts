@@ -1,5 +1,6 @@
 import apiClient from '@/lib/apiClient'
-import type { ApiEnvelope, AssetAuditRecord } from '@/types/asset'
+import type { ApiEnvelope } from '@/types/auth'
+import type { AuditLogRecord } from '@/types/audit'
 
 const unwrap = <T>(response: { data: unknown }): T => {
   const envelope = response.data as ApiEnvelope<T>
@@ -11,7 +12,7 @@ const unwrap = <T>(response: { data: unknown }): T => {
 
 /** Admin-only, tenant-scoped audit stream. The backend has no resource filter. */
 export const auditApi = {
-  async list(): Promise<AssetAuditRecord[]> {
-    return unwrap(await apiClient.get<ApiEnvelope<AssetAuditRecord[]>>('/audit-logs'))
+  async list(signal?: AbortSignal): Promise<AuditLogRecord[]> {
+    return unwrap(await apiClient.get<ApiEnvelope<AuditLogRecord[]>>('/audit-logs', { signal }))
   },
 }

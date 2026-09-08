@@ -560,6 +560,26 @@ describe("Incident Escalation Integration Tests", () => {
     expect(invalidResponse.status).toBe(400);
   });
 
+  it("should reject an inactive same-tenant SupportTeam target", async () => {
+    await SupportTeam.findByIdAndUpdate(supportTeamId, { isActive: false });
+
+    const response = await request(app)
+      .post("/api/v1/incident-escalation")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: uniqueName("Inactive Team Target"),
+        priority: "High",
+        escalationLevel: "Level 1",
+        thresholdMinutes: 15,
+        targetType: "SupportTeam",
+        targetTeam: supportTeamId,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/inactive/i);
+    await SupportTeam.findByIdAndUpdate(supportTeamId, { isActive: true });
+  });
+
   // ==========================================
   // 4. INVALID SUPPORT TEAM TARGET
   // ==========================================

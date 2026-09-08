@@ -24,6 +24,10 @@ Backend verification complete. All mandatory backend capabilities implemented an
 # Next Tasks
 
 - [ ] Build required React frontend after backend contracts stabilize.
+- [x] Implement Phase 13B frontend: organization profile in Settings (ADMIN edit / EMPLOYEE read-only), guarded Department Management CRUD, session-scoped API/hooks, and links to existing Users/Support Teams. Typecheck, lint, production build, and diff whitespace check pass; four existing User Management lint warnings and bundle-size warning remain.
+- [x] Phase 13C: integrate safe user profile editing, session-scoped directory/assignee queries across consumers, precise user/team mutation invalidation, Support Team 409 feedback, and canonical ADMIN/EMPLOYEE role guards. Focused contract tests: `cd client && node --test tests/directory-contract.test.cjs` (5 passed). Frontend typecheck (including app project), lint, production build, and diff check pass; four existing User Management lint warnings and bundle-size warning remain. No backend changes.
+- [x] Phase 13D: ADMIN-only Audit Log Viewer and Settings link; session-scoped shared audit types/API/hooks preserve Asset history. Client-side search/filters/paging and read-only metadata dialog implemented. Typecheck, explicit app check, lint, build, diff check, and `cd client && node --test tests/audit-contract.test.cjs` (5 tests) pass. Existing four User Management lint warnings and chunk-size warning remain; no backend changes. Tenant isolation and EMPLOYEE rejection confirmed from existing backend contract/test coverage.
+- [ ] Final Phase 13 browser verification: organization/department/user/team CRUD, audit read/filter/details/refresh, backend rejection feedback, ADMIN/EMPLOYEE routes, logout/login and tenant cache isolation, and desktop/tablet/mobile layouts. Audit API loads the full tenant dataset; local paging does not reduce network or memory usage.
 - [x] Implement Phase 12B frontend notifications: session-scoped feed API/hooks, authenticated Socket.IO notification lifecycle, realtime cache synchronization, accessible bell, and protected notification history.
 
 # Completed

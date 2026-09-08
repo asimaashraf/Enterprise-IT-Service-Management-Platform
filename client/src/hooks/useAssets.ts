@@ -3,7 +3,8 @@ import { useSelector } from 'react-redux'
 import { toast } from 'sonner'
 
 import { assetApi } from '@/lib/assetApi'
-import { auditApi } from '@/lib/auditApi'
+import { auditKeys, useAuditLogs } from '@/hooks/useAuditLogs'
+import { useSettingsScope } from '@/hooks/useSettingsScope'
 import type { RootState } from '@/store'
 import type { CreateAssetPayload, UpdateAssetPayload } from '@/types/asset'
 
@@ -16,8 +17,6 @@ export const assetKeys = {
     ['assets', organizationId, userId, id, 'lifecycle'] as const,
   maintenance: (organizationId: string, userId: string, id: string) =>
     ['assets', organizationId, userId, id, 'maintenance'] as const,
-  audit: (organizationId: string, userId: string, id: string) =>
-    ['assets', organizationId, userId, id, 'audit'] as const,
 }
 
 function useAssetQueryScope() {
@@ -72,19 +71,9 @@ export function useAssetMaintenanceHistory(id: string, enabled = true) {
 }
 
 export function useAssetAudit(id: string, enabled = true) {
-  const scope = useAssetQueryScope()
-  return useQuery({
-    queryKey: scope
-      ? assetKeys.audit(scope.organizationId, scope.userId, id)
-      : ['assets', 'unauthenticated', id, 'audit'] as const,
-    queryFn: async () => {
-      const records = await auditApi.list()
-      return records.filter(
-        (record) => record.resourceType === 'Asset' && record.resourceId === id,
-      )
-    },
-    enabled: Boolean(scope && id) && enabled,
-  })
+  return useAuditLogs(Boolean(id) && enabled, (records) =>
+    records.filter((record) => record.resourceType === 'Asset' && record.resourceId === id),
+  )
 }
 
 function useAssetMutation<T>(
@@ -92,10 +81,14 @@ function useAssetMutation<T>(
   successMessage: (assetId: string) => string,
 ) {
   const queryClient = useQueryClient()
+  const auditScope = useSettingsScope()
   return useMutation({
     mutationFn,
     onSuccess: (asset) => {
       queryClient.invalidateQueries({ queryKey: ['assets'] })
+      if (auditScope.isCurrent()) {
+        queryClient.invalidateQueries({ queryKey: auditKeys.list(auditScope.key), exact: true })
+      }
       toast.success(successMessage(asset.assetId))
     },
     onError: (error: Error) =>

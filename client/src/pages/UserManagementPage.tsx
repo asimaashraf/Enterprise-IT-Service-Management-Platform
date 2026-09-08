@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   Loader2,
+  Pencil,
   Users,
   ShieldCheck,
   UserPlus,
@@ -26,10 +27,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { useSelector } from 'react-redux'
+import { useSettingsScope } from '@/hooks/useSettingsScope'
+import { useUsers, useInvitations, useInvalidateUsers, directoryKeys } from '@/hooks/useUsers'
+import { UserProfileDialog } from '@/components/users/user-profile-dialog'
+import { settingsError } from '@/lib/settingsApi'
 
 import { userApi, invitationApi } from '@/lib/userApi'
-import type { RootState } from '@/store'
 import type { InvitationDetail, UserListItem, UserRole } from '@/types/auth'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
@@ -73,9 +76,13 @@ function formatDate(iso: string): string {
   })
 }
 
-export function UserManagementPage() {
+function UserManagementContent() {
   const queryClient = useQueryClient()
-  const currentUser = useSelector((state: RootState) => state.auth.user)
+  const scope = useSettingsScope()
+  const currentUser = scope.user
+  const invalidateUsers = useInvalidateUsers()
+  const [editingUser, setEditingUser] = useState<UserListItem | null>(null)
+  const authorized = <T,>(operation: () => Promise<T>) => { scope.assertAdmin(); return operation() }
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all')
@@ -102,20 +109,8 @@ export function UserManagementPage() {
   // DATA FETCHING
   // ==========================================
 
-  const usersQuery = useQuery({
-    queryKey: ['users', 'list'],
-    queryFn: () => userApi.list(),
-  })
-
-  const invitationsQuery = useQuery({
-    queryKey: ['invitations', 'list'],
-    queryFn: () => invitationApi.list(),
-  })
-
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['users', 'list'] })
-    queryClient.invalidateQueries({ queryKey: ['invitations', 'list'] })
-  }
+  const usersQuery = useUsers()
+  const invitationsQuery = useInvitations()
 
   // ==========================================
   // MUTATIONS
@@ -123,81 +118,93 @@ export function UserManagementPage() {
 
   const inviteMutation = useMutation({
     mutationFn: (vars: { email: string; role: UserRole }) =>
-      invitationApi.create(vars.email, vars.role),
+      authorized(() => invitationApi.create(vars.email, vars.role)),
     onSuccess: (data) => {
+      if (!scope.isCurrent()) return
       toast.success(`Invitation sent to ${data.email}`)
       setShowInvite(false)
       setInviteEmail('')
       setInviteRole('employee')
-      queryClient.invalidateQueries({ queryKey: ['invitations', 'list'] })
+      queryClient.invalidateQueries({ queryKey: directoryKeys.invitations(scope.key), exact: true })
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to send invitation')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
   const revokeInvitationMutation = useMutation({
-    mutationFn: (id: string) => invitationApi.revoke(id),
+    mutationFn: (id: string) => authorized(() => invitationApi.revoke(id)),
     onSuccess: () => {
+      if (!scope.isCurrent()) return
       toast.success('Invitation revoked')
       setPendingInviteRevoke(null)
-      queryClient.invalidateQueries({ queryKey: ['invitations', 'list'] })
+      queryClient.invalidateQueries({ queryKey: directoryKeys.invitations(scope.key), exact: true })
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to revoke invitation')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
   const activateMutation = useMutation({
-    mutationFn: (id: string) => userApi.activate(id),
+    mutationFn: (id: string) => authorized(() => userApi.activate(id)),
     onSuccess: () => {
+      if (!scope.isCurrent()) return
       toast.success('User activated')
       setPendingUserAction(null)
-      invalidateAll()
+      return invalidateUsers()
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to activate user')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => userApi.deactivate(id),
+    mutationFn: (id: string) => authorized(() => userApi.deactivate(id)),
     onSuccess: () => {
+      if (!scope.isCurrent()) return
       toast.success('User deactivated')
       setPendingUserAction(null)
-      invalidateAll()
+      return invalidateUsers()
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to deactivate user')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
   const blockMutation = useMutation({
-    mutationFn: (id: string) => userApi.block(id),
+    mutationFn: (id: string) => authorized(() => userApi.block(id)),
     onSuccess: () => {
+      if (!scope.isCurrent()) return
       toast.success('User blocked')
       setPendingUserAction(null)
-      invalidateAll()
+      return invalidateUsers()
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to block user')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
   const changeRoleMutation = useMutation({
     mutationFn: (vars: { id: string; role: UserRole }) =>
-      userApi.changeRole(vars.id, vars.role),
+      authorized(() => userApi.changeRole(vars.id, vars.role)),
     onSuccess: (_data, vars) => {
+      if (!scope.isCurrent()) return
       toast.success(
         vars.role === 'admin'
           ? 'User promoted to admin'
           : 'User demoted to employee',
       )
       setPendingUserAction(null)
-      invalidateAll()
+      return invalidateUsers()
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to change role')
+      if (!scope.isCurrent()) return
+      toast.error(settingsError(err))
     },
   })
 
@@ -240,7 +247,13 @@ export function UserManagementPage() {
   // ==========================================
 
   const performUserAction = () => {
-    if (!pendingUserAction) return
+    if (!pendingUserAction || isPerforming) return
+    const target = users.find((candidate) => candidate.id === pendingUserAction.user.id)
+    const removesAdmin = ['deactivate', 'block', 'make-employee'].includes(pendingUserAction.action)
+    if (!target || target.id === currentUser?.id || (removesAdmin && target.role === 'admin' && target.isActive && stats.admins <= 1)) {
+      toast.error('This action is unavailable. You cannot change your own access or remove the last active administrator.')
+      return
+    }
     const { user, action } = pendingUserAction
     switch (action) {
       case 'activate':
@@ -419,6 +432,7 @@ export function UserManagementPage() {
                 <tbody>
                   {filteredUsers.map((user) => {
                     const isSelf = currentUser?.id === user.id
+                    const protectedAdmin = user.role === 'admin' && user.isActive && stats.admins <= 1
                     return (
                       <tr
                         key={user.id}
@@ -454,20 +468,18 @@ export function UserManagementPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 px-2"
-                                disabled={isSelf}
-                                title={
-                                  isSelf
-                                    ? 'You cannot perform this action on yourself'
-                                    : 'Open actions'
-                                }
+                                disabled={isPerforming}
+                                title="Open actions"
                               >
                                 Actions
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Manage</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => setEditingUser(user)}><Pencil className="mr-2 h-4 w-4" />Edit profile</DropdownMenuItem>
                               {user.role === 'employee' ? (
                                 <DropdownMenuItem
+                                  disabled={isSelf}
                                   onSelect={() =>
                                     setPendingUserAction({
                                       user,
@@ -480,6 +492,7 @@ export function UserManagementPage() {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
+                                  disabled={isSelf || protectedAdmin}
                                   onSelect={() =>
                                     setPendingUserAction({
                                       user,
@@ -494,6 +507,7 @@ export function UserManagementPage() {
                               <DropdownMenuSeparator />
                               {user.isActive ? (
                                 <DropdownMenuItem
+                                  disabled={isSelf || protectedAdmin}
                                   onSelect={() =>
                                     setPendingUserAction({
                                       user,
@@ -505,6 +519,7 @@ export function UserManagementPage() {
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
+                                  disabled={isSelf}
                                   onSelect={() =>
                                     setPendingUserAction({
                                       user,
@@ -516,6 +531,7 @@ export function UserManagementPage() {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
+                                disabled={isSelf || protectedAdmin}
                                 onSelect={() =>
                                   setPendingUserAction({ user, action: 'block' })
                                 }
@@ -611,6 +627,8 @@ export function UserManagementPage() {
           )}
         </CardContent>
       </Card>
+
+      {editingUser && <UserProfileDialog key={editingUser.id} user={editingUser} onClose={() => setEditingUser(null)} />}
 
       {/* Invite dialog */}
       {showInvite && (
@@ -825,4 +843,10 @@ function InvitationStatusBadge({
     default:
       return <Badge variant="outline">{status}</Badge>
   }
+}
+
+export function UserManagementPage() {
+  const scope = useSettingsScope()
+  if (!scope.isAdmin) return null
+  return <UserManagementContent key={JSON.stringify(scope.key)} />
 }

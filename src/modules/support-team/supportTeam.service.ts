@@ -8,6 +8,7 @@ import {
   supportTeamRepository,
 } from "./supportTeam.repository";
 import { authRepository } from "../auth/auth.repository";
+import * as escalationRepository from "../incident-escalation/incidentEscalation.repository";
 
 interface CreateSupportTeamData {
   name: string;
@@ -172,6 +173,12 @@ export const deleteSupportTeam = async (
 
   if (!mongoose.Types.ObjectId.isValid(organizationId)) {
     return null;
+  }
+
+  if (await escalationRepository.existsByTargetTeam(id, organizationId)) {
+    throw new Error(
+      "Support team cannot be deleted while referenced by an escalation policy"
+    );
   }
 
   return supportTeamRepository.deleteByIdAndOrganization(

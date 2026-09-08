@@ -7,6 +7,29 @@ interface CreateDepartmentData {
   organizationId: string;
 }
 
+const departmentUpdateFields = new Set(["name", "description", "isActive"]);
+
+const sanitizeDepartmentUpdate = (data: unknown) => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Department update must be an object");
+  }
+
+  const update: Partial<{ name: string; description: string; isActive: boolean }> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith("$") || key.includes(".") || !departmentUpdateFields.has(key)) {
+      throw new Error(`Unsupported department field: ${key}`);
+    }
+    if (key === "name" || key === "description") {
+      if (typeof value !== "string") throw new Error(`${key} must be a string`);
+      update[key] = value;
+    } else {
+      if (typeof value !== "boolean") throw new Error("isActive must be a boolean");
+      update.isActive = value;
+    }
+  }
+  return update;
+};
+
 // ==========================================
 // CREATE DEPARTMENT
 // ==========================================
@@ -74,7 +97,7 @@ export const updateDepartment = async (
   return departmentRepository.updateByIdAndOrganization(
     id,
     organizationId,
-    data
+    sanitizeDepartmentUpdate(data)
   );
 };
 

@@ -150,9 +150,9 @@ const validateTarget = async (
         organizationId
       );
 
-    if (!team) {
+    if (!team || !team.isActive) {
       throw new Error(
-        "Target support team not found or does not belong to this organization"
+        "Target support team not found, inactive, or does not belong to this organization"
       );
     }
   }

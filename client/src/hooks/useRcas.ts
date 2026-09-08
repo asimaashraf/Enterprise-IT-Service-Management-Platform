@@ -8,7 +8,7 @@ import {
 import { toast } from 'sonner'
 import { store, type RootState } from '@/store'
 import { rcaApi, rcaProblemApi, rcaError } from '@/lib/rcaApi'
-import { userApi } from '@/lib/userApi'
+import { useUsers } from '@/hooks/useUsers'
 import { incidentApi } from '@/lib/incidentApi'
 import type {
   CreateRCAPayload,
@@ -137,18 +137,9 @@ export function useRcaIncidents() {
 }
 export function useRcaAssignees() {
   const scope = useRcaScope()
-  return useQuery({
-    ...queryOptions,
-    queryKey: [...scope.key, 'lookups', 'assignees'],
-    queryFn: async () =>
-      (await userApi.list()).filter(
-        (user) =>
-          user.isActive &&
-          user.role === 'admin' &&
-          user.organizationId === scope.user?.organizationId,
-      ),
-    enabled: scope.enabled && scope.user?.role === 'admin',
-  })
+  return useUsers(true, (users) => users.filter((user) =>
+    user.isActive && user.role === 'admin' && user.organizationId === scope.user?.organizationId,
+  ))
 }
 
 function useRcaMutation<T, R>(

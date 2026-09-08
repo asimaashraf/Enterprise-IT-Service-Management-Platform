@@ -108,17 +108,7 @@ export interface AssetMaintenanceRecord {
   updatedAt: string
 }
 
-export interface AssetAuditRecord {
-  _id: string
-  actorEmail?: string
-  actorRole?: 'admin' | 'employee'
-  action: string
-  eventType: string
-  resourceType: string
-  resourceId?: string
-  outcome: 'Success' | 'Failure'
-  createdAt: string
-}
+export type { AuditLogRecord as AssetAuditRecord } from '@/types/audit'
 
 export interface AssetFilters {
   search: string

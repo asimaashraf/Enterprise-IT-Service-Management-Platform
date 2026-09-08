@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Boxes, Eye, Link2, Pencil, Plus, Unlink } from 'lucide-react'
 import { useSelector } from 'react-redux'
@@ -15,7 +14,7 @@ import { FilterBar, type FilterOption } from '@/components/ui/filter-bar'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { useAssets, useAssignAsset, useCreateAsset, useUnassignAsset, useUpdateAsset } from '@/hooks/useAssets'
-import { userApi } from '@/lib/userApi'
+import { useUsers } from '@/hooks/useUsers'
 import type { RootState } from '@/store/store'
 import {
   getAssetAssigneeDisplay,
@@ -59,11 +58,7 @@ export function AssetsPage() {
   const user = useSelector((state: RootState) => state.auth.user)
   const isAdmin = user?.role === 'admin'
   const assetsQuery = useAssets()
-  const employeesQuery = useQuery({
-    queryKey: ['users', 'list'],
-    queryFn: () => userApi.list(),
-    enabled: isAdmin,
-  })
+  const employeesQuery = useUsers()
   const createMutation = useCreateAsset()
   const updateMutation = useUpdateAsset()
   const assignMutation = useAssignAsset()

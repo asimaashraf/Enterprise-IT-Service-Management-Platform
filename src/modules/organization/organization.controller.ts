@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 
 import {
   createOrganization,
-  getOrganizations,
   getOrganizationById,
   updateOrganization,
   deleteOrganization,
@@ -50,12 +49,7 @@ export const getOrganizationsController = async (
       });
     }
 
-    const organizations = await getOrganizations();
-
-    const organization = organizations.find(
-      (item) =>
-        item._id.toString() === req.user?.organizationId
-    );
+    const organization = await getOrganizationById(req.user.organizationId);
 
     if (!organization) {
       return res.status(404).json({
@@ -117,7 +111,8 @@ export const getOrganizationByIdController = async (
       data: organization,
     });
   } catch (error: any) {
-    res.status(500).json({
+    const status = error.message.includes("cannot be deleted") ? 409 : 500;
+    res.status(status).json({
       success: false,
       message: error.message,
     });
@@ -216,7 +211,10 @@ export const deleteOrganizationController = async (
       data: organization,
     });
   } catch (error: any) {
-    res.status(500).json({
+    const status = error.message.includes("tenant-owned data exists")
+      ? 409
+      : 500;
+    res.status(status).json({
       success: false,
       message: error.message,
     });

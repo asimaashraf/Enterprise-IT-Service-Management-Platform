@@ -60,6 +60,13 @@ export function EscalationPolicyDialog({ open, onOpenChange, policy, users, team
 
   const targetType = form.watch('targetType')
   const submit = (data: FormData) => {
+    const validTarget = data.targetType === 'User'
+      ? users.some((user) => user.id === data.targetId && user.isActive)
+      : teams.some((team) => team._id === data.targetId && team.isActive)
+    if (!validTarget) {
+      form.setError('targetId', { message: 'This target is no longer active or available. Choose an active target.' })
+      return
+    }
     const target = data.targetType === 'User' ? { targetUser: data.targetId } : { targetTeam: data.targetId }
     const payload = { name: data.name.trim(), priority: data.priority, escalationLevel: data.escalationLevel, thresholdMinutes: Number(data.thresholdMinutes), targetType: data.targetType, isActive: data.isActive, ...target }
     if (policy) onUpdate(payload)

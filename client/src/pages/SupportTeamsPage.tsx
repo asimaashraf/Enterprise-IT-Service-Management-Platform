@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil, Plus, Trash2, Users } from 'lucide-react'
 
 import { SupportTeamDialog } from '@/components/support-teams/support-team-dialog'
 import { Button } from '@/components/ui/button'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { settingsError } from '@/lib/settingsApi'
+import { useSettingsScope } from '@/hooks/useSettingsScope'
 import { DataTable } from '@/components/ui/data-table'
 import { ErrorState } from '@/components/ui/error-state'
 import { PageHeader } from '@/components/ui/page-header'
@@ -16,19 +17,17 @@ import {
   useSupportTeams,
   useUpdateSupportTeam,
 } from '@/hooks/useSupportTeams'
-import { userApi } from '@/lib/userApi'
+import { useUsers } from '@/hooks/useUsers'
 import type {
   CreateSupportTeamPayload,
   SupportTeam,
   UpdateSupportTeamPayload,
 } from '@/types/supportTeam'
 
-export function SupportTeamsPage() {
+function SupportTeamsContent() {
+  const scope = useSettingsScope()
   const teamsQuery = useSupportTeams()
-  const adminsQuery = useQuery({
-    queryKey: ['users', 'list'],
-    queryFn: () => userApi.list(),
-  })
+  const adminsQuery = useUsers()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTeam, setEditingTeam] = useState<SupportTeam | null>(null)
   const [deletingTeam, setDeletingTeam] = useState<SupportTeam | null>(null)
@@ -42,8 +41,8 @@ export function SupportTeamsPage() {
   const deleteMutation = useDeleteSupportTeam(() => setDeletingTeam(null))
 
   const candidates = useMemo(
-    () => (adminsQuery.data ?? []).filter((user) => user.role === 'admin' && user.isActive),
-    [adminsQuery.data],
+    () => (adminsQuery.data ?? []).filter((user) => user.role === 'admin' && user.isActive && user.organizationId === scope.user?.organizationId),
+    [adminsQuery.data, scope.user?.organizationId],
   )
 
   const columns = useMemo<ColumnDef<SupportTeam>[]>(
@@ -152,17 +151,27 @@ export function SupportTeamsPage() {
         }}
       />
 
-      <ConfirmDialog
-        open={!!deletingTeam}
-        onOpenChange={(open) => !open && setDeletingTeam(null)}
-        title="Delete support team?"
-        description={deletingTeam ? `This permanently deletes ${deletingTeam.name}.` : undefined}
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        loading={deleteMutation.isPending}
-        onConfirm={() => deletingTeam && deleteMutation.mutate(deletingTeam._id)}
-        onCancel={() => setDeletingTeam(null)}
-      />
+      <AlertDialog open={!!deletingTeam} onOpenChange={(open) => {
+        if (!open && !deleteMutation.isPending) { setDeletingTeam(null); deleteMutation.reset() }
+      }}>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete support team?</AlertDialogTitle>
+            <AlertDialogDescription className="break-words">This permanently deletes {deletingTeam?.name}. Teams referenced by an escalation policy cannot be deleted.</AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteMutation.isError && <p role="alert" className="text-sm text-destructive">{settingsError(deleteMutation.error)}</p>}
+          <AlertDialogFooter>
+            <Button variant="outline" disabled={deleteMutation.isPending} onClick={() => { setDeletingTeam(null); deleteMutation.reset() }}>Cancel</Button>
+            <Button variant="destructive" disabled={deleteMutation.isPending} onClick={() => { if (deletingTeam) deleteMutation.mutate(deletingTeam._id) }}>{deleteMutation.isPending ? 'Deleting...' : 'Delete'}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
+}
+
+export function SupportTeamsPage() {
+  const scope = useSettingsScope()
+  if (!scope.isAdmin) return null
+  return <SupportTeamsContent key={JSON.stringify(scope.key)} />
 }

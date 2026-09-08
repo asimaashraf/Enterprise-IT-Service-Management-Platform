@@ -29,6 +29,18 @@ export const findByName = async (
   });
 };
 
+export const existsByTargetTeam = async (
+  targetTeam: string,
+  organizationId: string
+): Promise<boolean> => {
+  return Boolean(
+    await IncidentEscalationPolicy.exists({
+      targetTeam,
+      organizationId,
+    })
+  );
+};
+
 // ==========================================
 // FIND ALL
 // ==========================================

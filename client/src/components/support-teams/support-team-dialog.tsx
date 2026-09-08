@@ -70,9 +70,13 @@ export function SupportTeamDialog({
   }, [form, open, team])
 
   const submit = (data: SupportTeamFormData) => {
+    if (submitting || candidatesLoading || candidatesError || data.members.some((id) => !candidates.some((candidate) => candidate.id === id))) {
+      form.setError('members', { message: 'Choose available active administrators before saving.' })
+      return
+    }
     const sharedPayload = {
       name: data.name,
-      description: data.description?.trim() || undefined,
+      description: data.description?.trim() ?? '',
       members: data.members,
     }
     if (team) {
@@ -83,9 +87,10 @@ export function SupportTeamDialog({
   }
 
   const members = form.watch('members')
+  const unavailableMembers = members.filter((id) => !candidates.some((candidate) => candidate.id === id))
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!submitting) onOpenChange(next) }}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{team ? 'Edit Support Team' : 'Create Support Team'}</DialogTitle>
@@ -145,7 +150,14 @@ export function SupportTeamDialog({
                     </span>
                   </label>
                 ))}
+                {!candidatesLoading && !candidatesError && unavailableMembers.map((id) => (
+                  <label key={id} className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" checked disabled={submitting} onChange={() => form.setValue('members', members.filter((member) => member !== id), { shouldDirty: true })} />
+                    <span className="break-all text-muted-foreground">Unavailable member ({id}). Remove this selection before saving; membership requires an active administrator.</span>
+                  </label>
+                ))}
               </div>
+              {form.formState.errors.members && <FormMessage>{form.formState.errors.members.message}</FormMessage>}
             </FormItem>
           </div>
         </Form>
@@ -154,7 +166,7 @@ export function SupportTeamDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="submit" form="support-team-form" disabled={submitting}>
+          <Button type="submit" form="support-team-form" disabled={submitting || candidatesLoading || candidatesError || unavailableMembers.length > 0}>
             {submitting ? 'Saving…' : team ? 'Save Changes' : 'Create Team'}
           </Button>
         </DialogFooter>

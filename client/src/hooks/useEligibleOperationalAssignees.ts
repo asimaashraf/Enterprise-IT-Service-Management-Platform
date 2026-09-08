@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { userApi } from '@/lib/userApi'
-
-export const eligibleOperationalAssigneeKey = ['users', 'eligible-assignees'] as const
+import { directoryKeys } from '@/hooks/useUsers'
+import { useSettingsScope, settingsQueryOptions } from '@/hooks/useSettingsScope'
 
 export function useEligibleOperationalAssignees(enabled: boolean) {
+  const scope = useSettingsScope()
   return useQuery({
-    queryKey: eligibleOperationalAssigneeKey,
-    queryFn: () => userApi.eligibleAssignees(),
-    enabled,
+    ...settingsQueryOptions,
+    queryKey: directoryKeys.assignees(scope.key),
+    queryFn: ({ signal }) => userApi.eligibleAssignees(signal),
+    enabled: scope.isAdmin && enabled,
   })
 }

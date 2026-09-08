@@ -19,9 +19,10 @@ const unwrap = <T>(response: { data: unknown }): T => {
  * authenticated user and remains the authority for membership eligibility.
  */
 export const supportTeamApi = {
-  async list(): Promise<SupportTeam[]> {
+  async list(signal?: AbortSignal): Promise<SupportTeam[]> {
     const response = await apiClient.get<ApiEnvelope<SupportTeam[]>>(
       '/support-teams',
+      { signal },
     )
     return unwrap<SupportTeam[]>(response)
   },
@@ -29,7 +30,7 @@ export const supportTeamApi = {
   async create(payload: CreateSupportTeamPayload): Promise<SupportTeam> {
     const response = await apiClient.post<ApiEnvelope<SupportTeam>>(
       '/support-teams',
-      payload,
+      { name: payload.name, description: payload.description, members: payload.members },
     )
     return unwrap<SupportTeam>(response)
   },
@@ -40,7 +41,7 @@ export const supportTeamApi = {
   ): Promise<SupportTeam> {
     const response = await apiClient.put<ApiEnvelope<SupportTeam>>(
       `/support-teams/${id}`,
-      payload,
+      { name: payload.name, description: payload.description, members: payload.members, isActive: payload.isActive },
     )
     return unwrap<SupportTeam>(response)
   },
