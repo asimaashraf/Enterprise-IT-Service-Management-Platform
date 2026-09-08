@@ -1,112 +1,35 @@
 import mongoose from "mongoose";
 
 import { authRepository } from "../auth/auth.repository";
-import { incidentRepository } from "../incident/incident.repository";
-import { assetRepository } from "../asset/asset.repository";
-import { changeRepository } from "../change/change.repository";
-import { slaRepository } from "../sla/sla.repository";
-import { assetMaintenanceRepository } from "../asset/assetMaintenance.repository";
-import { assetLifecycleRepository } from "../asset/assetLifecycle.repository";
+import { analyticsRepository } from "./analytics.repository";
+import { AnalyticsDateRange, trendRange, DAY } from "./analytics.validation";
+import type {
+  TechnicianPerformance,
+  IncidentTrendsAnalytics,
+  SLAComplianceAnalytics,
+  ResolutionTimeAnalytics,
+  AssetHealthAnalytics,
+  ChangeSuccessRateAnalytics,
+} from "./analytics.types";
+export type {
+  TechnicianPerformance,
+  IncidentTrendsAnalytics,
+  SLAComplianceAnalytics,
+  ResolutionTimeAnalytics,
+  AssetHealthAnalytics,
+  ChangeSuccessRateAnalytics,
+} from "./analytics.types";
 
 // ==========================================
 // TYPES
 // ==========================================
-
-export interface TechnicianPerformance {
-  technicianId: string;
-  technicianName: string;
-  email: string;
-
-  totalAssigned: number;
-  openIncidents: number;
-  inProgressIncidents: number;
-  resolvedIncidents: number;
-  closedIncidents: number;
-
-  totalResolvedOrClosed: number;
-  resolutionRate: number;
-
-  averageResolutionTimeHours: number | null;
-}
-
-export interface IncidentTrendsAnalytics {
-  totalIncidents: number;
-  open: number;
-  inProgress: number;
-  pending: number;
-  resolved: number;
-  closed: number;
-  byStatus: Record<string, number>;
-  byPriority: Record<string, number>;
-  bySeverity: Record<string, number>;
-  trend: Array<{ date: string; count: number }>;
-}
-
-export interface SLAComplianceAnalytics {
-  totalSLAs: number;
-  active: number;
-  completed: number;
-  responseBreached: number;
-  resolutionBreached: number;
-  totalBreached: number;
-  compliant: number;
-  complianceRate: number;
-  byPriority: Record<string, number>;
-  byStatus: Record<string, number>;
-}
-
-export interface ResolutionTimeAnalytics {
-  totalResolvedIncidents: number;
-  averageResolutionHours: number | null;
-  medianResolutionHours: number | null;
-  byPriority: Record<string, number>;
-}
-
-export interface AssetHealthAnalytics {
-  totalAssets: number;
-
-  available: number;
-  assigned: number;
-  maintenance: number;
-  retired: number;
-
-  activeAssets: number;
-  healthyAssets: number;
-
-  warrantyAlerts: number;
-  maintenanceAlerts: number;
-  lifecycleAlerts: number;
-
-  healthRate: number;
-  maintenanceRate: number;
-  retiredRate: number;
-}
-
-export interface ChangeSuccessRateAnalytics {
-  totalChanges: number;
-
-  completed: number;
-  failed: number;
-  cancelled: number;
-
-  successfulChanges: number;
-  unsuccessfulChanges: number;
-  evaluatedChanges: number;
-  unevaluatedChanges: number;
-
-  successRate: number;
-  failureRate: number;
-}
 
 // ==========================================
 // VALIDATE ORGANIZATION ID
 // ==========================================
 
 const validateOrganizationId = (organizationId: string) => {
-  if (
-    !organizationId ||
-    !mongoose.Types.ObjectId.isValid(organizationId)
-  ) {
+  if (!organizationId || !mongoose.Types.ObjectId.isValid(organizationId)) {
     throw new Error("Invalid organization ID");
   }
 };
@@ -115,59 +38,65 @@ const validateOrganizationId = (organizationId: string) => {
 // ROUND PERCENTAGE
 // ==========================================
 
-const percentage = (
-  numerator: number,
-  denominator: number
-): number => {
+const percentage = (numerator: number, denominator: number): number => {
   if (denominator === 0) {
     return 0;
   }
 
-  return Number(
-    ((numerator / denominator) * 100).toFixed(2)
-  );
+  return Number(((numerator / denominator) * 100).toFixed(2));
 };
 
-const getStatusCounts = <T extends { status?: string }>(items: T[]) => {
+const getStatusCounts = <T extends { status?: string; count?: number }>(
+  items: T[],
+) => {
   const counts: Record<string, number> = {};
 
   for (const item of items) {
     const status = item.status || "Unknown";
-    counts[status] = (counts[status] || 0) + 1;
+    counts[status] = (counts[status] || 0) + (item.count ?? 1);
   }
 
   return counts;
 };
 
-const getPriorityCounts = <T extends { priority?: string }>(items: T[]) => {
+const getPriorityCounts = <T extends { priority?: string; count?: number }>(
+  items: T[],
+) => {
   const counts: Record<string, number> = {};
 
   for (const item of items) {
     const priority = item.priority || "Unknown";
-    counts[priority] = (counts[priority] || 0) + 1;
+    counts[priority] = (counts[priority] || 0) + (item.count ?? 1);
   }
 
   return counts;
 };
 
-const getSeverityCounts = <T extends { severity?: string }>(items: T[]) => {
+const getSeverityCounts = <T extends { severity?: string; count?: number }>(
+  items: T[],
+) => {
   const counts: Record<string, number> = {};
 
   for (const item of items) {
     const severity = item.severity || "Unknown";
-    counts[severity] = (counts[severity] || 0) + 1;
+    counts[severity] = (counts[severity] || 0) + (item.count ?? 1);
   }
 
   return counts;
 };
 
-const getTrendSeries = (items: Array<{ createdAt?: Date }>) => {
+const getTrendSeries = (
+  items: Array<{ createdAt?: Date; count: number }>,
+  range: Required<AnalyticsDateRange>,
+) => {
   const orderedDates: Record<string, number> = {};
 
-  for (let index = 29; index >= 0; index -= 1) {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() - index);
-    orderedDates[date.toISOString().slice(0, 10)] = 0;
+  for (
+    let time = range.start.getTime();
+    time < range.end.getTime();
+    time += DAY
+  ) {
+    orderedDates[new Date(time).toISOString().slice(0, 10)] = 0;
   }
 
   for (const item of items) {
@@ -175,12 +104,10 @@ const getTrendSeries = (items: Array<{ createdAt?: Date }>) => {
       continue;
     }
 
-    const key = new Date(item.createdAt)
-      .toISOString()
-      .slice(0, 10);
+    const key = new Date(item.createdAt).toISOString().slice(0, 10);
 
     if (orderedDates[key] !== undefined) {
-      orderedDates[key] += 1;
+      orderedDates[key] += item.count;
     }
   }
 
@@ -195,12 +122,15 @@ const getTrendSeries = (items: Array<{ createdAt?: Date }>) => {
 // ==========================================
 
 export const getIncidentTrends = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<IncidentTrendsAnalytics> => {
   validateOrganizationId(organizationId);
 
-  const incidents = await incidentRepository.findAllByOrganization(
-    organizationId
+  range = trendRange(range);
+  const incidents = await analyticsRepository.incidentTrends(
+    organizationId,
+    range,
   );
 
   const byStatus = getStatusCounts(incidents);
@@ -208,7 +138,7 @@ export const getIncidentTrends = async (
   const bySeverity = getSeverityCounts(incidents);
 
   return {
-    totalIncidents: incidents.length,
+    totalIncidents: incidents.reduce((sum, row) => sum + row.count, 0),
     open: byStatus.Open || 0,
     inProgress: byStatus["In Progress"] || 0,
     pending: byStatus.Pending || 0,
@@ -217,7 +147,7 @@ export const getIncidentTrends = async (
     byStatus,
     byPriority,
     bySeverity,
-    trend: getTrendSeries(incidents),
+    trend: getTrendSeries(incidents, range as Required<AnalyticsDateRange>),
   };
 };
 
@@ -226,37 +156,51 @@ export const getIncidentTrends = async (
 // ==========================================
 
 export const getSLACompliance = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<SLAComplianceAnalytics> => {
   validateOrganizationId(organizationId);
 
-  const slas = await slaRepository.findByOrganization(organizationId);
+  const slas = await analyticsRepository.slas(organizationId, range);
 
   const byPriority = getPriorityCounts(slas);
   const byStatus = getStatusCounts(slas);
 
-  const active = slas.filter((sla) => sla.status === "Active").length;
-  const completed = slas.filter((sla) => sla.status === "Completed").length;
-  const responseBreached = slas.filter((sla) => sla.responseBreached).length;
-  const resolutionBreached = slas.filter((sla) => sla.resolutionBreached).length;
-  const totalBreached = responseBreached + resolutionBreached;
+  const totalSLAs = slas.reduce((sum, row) => sum + row.count, 0);
+  const active = slas
+    .filter((sla) => sla.status === "Active")
+    .reduce((sum, row) => sum + row.count, 0);
+  const completed = slas
+    .filter((sla) => sla.status === "Completed")
+    .reduce((sum, row) => sum + row.count, 0);
+  const responseBreached = slas
+    .filter((sla) => sla.responseBreached)
+    .reduce((sum, row) => sum + row.count, 0);
+  const resolutionBreached = slas
+    .filter((sla) => sla.resolutionBreached)
+    .reduce((sum, row) => sum + row.count, 0);
+  const totalBreached = slas
+    .filter((sla) => sla.responseBreached || sla.resolutionBreached)
+    .reduce((sum, row) => sum + row.count, 0);
 
-  const compliant = slas.filter(
-    (sla) =>
-      !sla.responseBreached &&
-      !sla.resolutionBreached &&
-      (sla.status === "Active" || sla.status === "Completed")
-  ).length;
+  const compliant = slas
+    .filter(
+      (sla) =>
+        !sla.responseBreached &&
+        !sla.resolutionBreached &&
+        (sla.status === "Active" || sla.status === "Completed"),
+    )
+    .reduce((sum, row) => sum + row.count, 0);
 
   return {
-    totalSLAs: slas.length,
+    totalSLAs,
     active,
     completed,
     responseBreached,
     resolutionBreached,
     totalBreached,
     compliant,
-    complianceRate: percentage(compliant, slas.length),
+    complianceRate: percentage(compliant, totalSLAs),
     byPriority,
     byStatus,
   };
@@ -267,18 +211,19 @@ export const getSLACompliance = async (
 // ==========================================
 
 export const getResolutionTime = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<ResolutionTimeAnalytics> => {
   validateOrganizationId(organizationId);
 
-  const incidents = await incidentRepository.findAllByOrganization(
-    organizationId
+  const incidents = await analyticsRepository.resolvedIncidents(
+    organizationId,
+    range,
   );
 
   const resolvedIncidents = incidents.filter(
     (incident) =>
-      incident.status === "Resolved" ||
-      incident.status === "Closed"
+      incident.status === "Resolved" || incident.status === "Closed",
   );
 
   const durations = resolvedIncidents
@@ -306,9 +251,8 @@ export const getResolutionTime = async (
       ? null
       : Number(
           (
-            durations.reduce((sum, value) => sum + value, 0) /
-            durations.length
-          ).toFixed(2)
+            durations.reduce((sum, value) => sum + value, 0) / durations.length
+          ).toFixed(2),
         );
 
   const medianResolutionHours =
@@ -316,9 +260,10 @@ export const getResolutionTime = async (
       ? null
       : Number(
           (
-            durations[Math.floor(durations.length / 2)] ||
-            durations[0]
-          ).toFixed(2)
+            (durations[Math.floor((durations.length - 1) / 2)] +
+              durations[Math.floor(durations.length / 2)]) /
+            2
+          ).toFixed(2),
         );
 
   const byPriority = getPriorityCounts(resolvedIncidents);
@@ -336,74 +281,56 @@ export const getResolutionTime = async (
 // ==========================================
 
 export const getTechnicianPerformance = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<TechnicianPerformance[]> => {
   validateOrganizationId(organizationId);
 
-  /*
-   * Only active employees are technicians.
-   *
-   * Admins are intentionally excluded because
-   * incidents are only assignable to employees.
-   */
-
+  // Legacy endpoint name; operational users are active same-tenant ADMINs.
   const technicians =
-    await authRepository.findActiveEmployeesByOrganization(
-      organizationId
-    );
-
+    await authRepository.findActiveAdminsByOrganization(organizationId);
+  const assignedIncidents = await analyticsRepository.incidents(
+    organizationId,
+    range,
+    technicians.map((user) => user._id.toString()),
+  );
+  const grouped = new Map<string, typeof assignedIncidents>();
+  for (const incident of assignedIncidents) {
+    const id = incident.assignedTo!.toString();
+    const group = grouped.get(id) ?? [];
+    group.push(incident);
+    grouped.set(id, group);
+  }
   const results: TechnicianPerformance[] = [];
-
-  /*
-   * Each technician's incidents are retrieved
-   * through the repository layer.
-   *
-   * This keeps database access out of the
-   * analytics service.
-   */
-
   for (const technician of technicians) {
-    const incidents =
-      await incidentRepository.findByTechnician(
-        organizationId,
-        technician._id.toString()
-      );
+    const incidents = grouped.get(technician._id.toString()) ?? [];
 
     const totalAssigned = incidents.length;
 
     const openIncidents = incidents.filter(
-      (incident) =>
-        incident.status === "Open"
+      (incident) => incident.status === "Open",
     ).length;
 
     const inProgressIncidents = incidents.filter(
-      (incident) =>
-        incident.status === "In Progress"
+      (incident) => incident.status === "In Progress",
     ).length;
 
     const resolvedIncidents = incidents.filter(
-      (incident) =>
-        incident.status === "Resolved"
+      (incident) => incident.status === "Resolved",
     ).length;
 
     const closedIncidents = incidents.filter(
-      (incident) =>
-        incident.status === "Closed"
+      (incident) => incident.status === "Closed",
     ).length;
 
     const completedIncidents = incidents.filter(
       (incident) =>
-        incident.status === "Resolved" ||
-        incident.status === "Closed"
+        incident.status === "Resolved" || incident.status === "Closed",
     );
 
-    const totalResolvedOrClosed =
-      completedIncidents.length;
+    const totalResolvedOrClosed = completedIncidents.length;
 
-    const resolutionRate = percentage(
-      totalResolvedOrClosed,
-      totalAssigned
-    );
+    const resolutionRate = percentage(totalResolvedOrClosed, totalAssigned);
 
     // ========================================
     // AVERAGE RESOLUTION TIME
@@ -420,65 +347,40 @@ export const getTechnicianPerformance = async (
          * timestamp.
          */
 
-        const endDate =
-          incident.resolvedAt ??
-          incident.closedAt;
+        const endDate = incident.resolvedAt ?? incident.closedAt;
 
-        if (!endDate) {
+        if (!endDate || !incident.createdAt) {
           return null;
         }
 
-        const start = new Date(
-          incident.createdAt
-        ).getTime();
+        const start = new Date(incident.createdAt).getTime();
 
-        const end = new Date(
-          endDate
-        ).getTime();
+        const end = new Date(endDate).getTime();
 
-        if (
-          !Number.isFinite(start) ||
-          !Number.isFinite(end) ||
-          end <= start
-        ) {
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
           return null;
         }
 
-        return (
-          (end - start) /
-          (1000 * 60 * 60)
-        );
+        return (end - start) / (1000 * 60 * 60);
       })
-      .filter(
-        (
-          value
-        ): value is number =>
-          value !== null
-      );
+      .filter((value): value is number => value !== null);
 
     const averageResolutionTimeHours =
       resolutionTimes.length === 0
         ? null
         : Number(
             (
-              resolutionTimes.reduce(
-                (sum, value) =>
-                  sum + value,
-                0
-              ) /
+              resolutionTimes.reduce((sum, value) => sum + value, 0) /
               resolutionTimes.length
-            ).toFixed(2)
+            ).toFixed(2),
           );
 
     results.push({
-      technicianId:
-        technician._id.toString(),
+      technicianId: technician._id.toString(),
 
-      technicianName:
-        technician.name,
+      technicianName: technician.name,
 
-      email:
-        technician.email,
+      email: technician.email,
 
       totalAssigned,
 
@@ -508,10 +410,8 @@ export const getTechnicianPerformance = async (
 
   return results.sort(
     (a, b) =>
-      b.resolutionRate -
-        a.resolutionRate ||
-      b.totalResolvedOrClosed -
-        a.totalResolvedOrClosed
+      b.resolutionRate - a.resolutionRate ||
+      b.totalResolvedOrClosed - a.totalResolvedOrClosed,
   );
 };
 
@@ -520,108 +420,88 @@ export const getTechnicianPerformance = async (
 // ==========================================
 
 export const getAssetHealth = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<AssetHealthAnalytics> => {
   validateOrganizationId(organizationId);
 
-  const assets =
-    await assetRepository.findByOrganization(
-      organizationId
-    );
-
-  const maintenanceRecords =
-    await assetMaintenanceRepository.findByOrganization(
-      organizationId
-    );
-
-  const lifecycleEvents =
-    await assetLifecycleRepository.findByOrganization(
-      organizationId
-    );
+  const assets = await analyticsRepository.assets(organizationId);
+  const now = Date.now();
+  const historyRange = Object.keys(range).length
+    ? range
+    : {
+        start: new Date(now - 90 * DAY),
+        end: new Date(now + 1),
+      };
+  const [maintenanceRecords, lifecycleEvents] = await Promise.all([
+    analyticsRepository.maintenance(
+      organizationId,
+      assets.map((asset) => asset._id.toString()),
+      historyRange,
+      now,
+    ),
+    Object.keys(range).length
+      ? analyticsRepository.lifecycle(
+          organizationId,
+          assets
+            .filter((asset) => asset.status === "Retired")
+            .map((asset) => asset._id.toString()),
+          range,
+          now,
+        )
+      : Promise.resolve([]),
+  ]);
 
   const totalAssets = assets.length;
 
   const available = assets.filter(
-    (asset) =>
-      asset.status === "Available"
+    (asset) => asset.status === "Available",
   ).length;
 
-  const assigned = assets.filter(
-    (asset) =>
-      asset.status === "Assigned"
-  ).length;
+  const assigned = assets.filter((asset) => asset.status === "Assigned").length;
 
   const maintenance = assets.filter(
-    (asset) =>
-      asset.status === "Maintenance"
+    (asset) => asset.status === "Maintenance",
   ).length;
 
-  const retired = assets.filter(
-    (asset) =>
-      asset.status === "Retired"
-  ).length;
+  const retired = assets.filter((asset) => asset.status === "Retired").length;
 
   const activeAssets = available + assigned;
   const healthyAssets = activeAssets;
 
-  const now = Date.now();
   const warrantyAlerts = assets.filter((asset) => {
     if (!asset.warrantyEndDate) {
       return false;
     }
 
-    return new Date(asset.warrantyEndDate).getTime() <= now + 30 * 24 * 60 * 60 * 1000;
+    return (
+      new Date(asset.warrantyEndDate).getTime() <=
+      now + 30 * 24 * 60 * 60 * 1000
+    );
   }).length;
 
   const maintenanceAlertSet = new Set<string>();
 
   for (const record of maintenanceRecords) {
-    const recordDate = new Date(record.date).getTime();
-    const isRecent = now - recordDate <= 90 * 24 * 60 * 60 * 1000;
-
-    if (isRecent) {
-      maintenanceAlertSet.add(record.assetId.toString());
-    }
+    maintenanceAlertSet.add(record.assetId.toString());
   }
-
+  // Current maintenance always remains an alert, independent of history filters.
   for (const asset of assets) {
-    if (asset.status === "Maintenance") {
+    if (asset.status === "Maintenance")
       maintenanceAlertSet.add(asset._id.toString());
-    }
   }
-
   const maintenanceAlerts = maintenanceAlertSet.size;
+  // Filtered lifecycle alerts are currently retired assets with a retirement
+  // transition in the period. Unfiltered alerts count all currently retired assets.
+  const lifecycleAlerts = Object.keys(range).length
+    ? new Set(lifecycleEvents.map((event) => event.assetId.toString())).size
+    : retired;
 
-  const lifecycleAlertSet = new Set<string>();
+  const healthRate = percentage(healthyAssets, totalAssets);
 
-  for (const event of lifecycleEvents) {
-    if (event.newStatus === "Retired" || event.previousStatus === "Retired") {
-      lifecycleAlertSet.add(event.assetId.toString());
-    }
-  }
+  const maintenanceRate = percentage(maintenance, totalAssets);
 
-  for (const asset of assets) {
-    if (asset.status === "Retired") {
-      lifecycleAlertSet.add(asset._id.toString());
-    }
-  }
-
-  const lifecycleAlerts = lifecycleAlertSet.size;
-
-  const healthRate = percentage(
-    healthyAssets,
-    totalAssets
-  );
-
-  const maintenanceRate = percentage(
-    maintenance,
-    totalAssets
-  );
-
-  const retiredRate = percentage(
-    retired,
-    totalAssets
-  );
+  const retiredRate = percentage(retired, totalAssets);
 
   return {
     totalAssets,
@@ -655,55 +535,46 @@ export const getAssetHealth = async (
 // ==========================================
 
 export const getChangeSuccessRate = async (
-  organizationId: string
+  organizationId: string,
+  range: AnalyticsDateRange = {},
 ): Promise<ChangeSuccessRateAnalytics> => {
   validateOrganizationId(organizationId);
 
-  const changes =
-    await changeRepository.findByOrganization(
-      organizationId
-    );
+  const changes = await analyticsRepository.changes(organizationId, range);
 
-  const totalChanges = changes.length;
+  const totalChanges = changes.reduce((sum, row) => sum + row.count, 0);
 
-  const completed = changes.filter(
-    (change) =>
-      change.status === "Completed"
-  ).length;
+  const completed = changes
+    .filter((change) => change.status === "Completed")
+    .reduce((sum, row) => sum + row.count, 0);
 
-  const failed = changes.filter(
-    (change) =>
-      change.status === "Failed"
-  ).length;
+  const failed = changes
+    .filter((change) => change.status === "Failed")
+    .reduce((sum, row) => sum + row.count, 0);
 
-  const cancelled = changes.filter(
-    (change) =>
-      change.status === "Cancelled"
-  ).length;
+  const cancelled = changes
+    .filter((change) => change.status === "Cancelled")
+    .reduce((sum, row) => sum + row.count, 0);
 
   /*
    * Completed changes are successful.
    */
 
-  const successfulChanges =
-    completed;
+  const successfulChanges = completed;
 
   /*
    * Failed and cancelled changes are
    * unsuccessful.
    */
 
-  const unsuccessfulChanges =
-    failed + cancelled;
+  const unsuccessfulChanges = failed + cancelled;
 
   /*
    * Only completed, failed, and cancelled
    * changes have a final outcome.
    */
 
-  const evaluatedChanges =
-    successfulChanges +
-    unsuccessfulChanges;
+  const evaluatedChanges = successfulChanges + unsuccessfulChanges;
 
   /*
    * Draft, Pending Approval, Approved,
@@ -712,19 +583,11 @@ export const getChangeSuccessRate = async (
    * success/failure outcome.
    */
 
-  const unevaluatedChanges =
-    totalChanges -
-    evaluatedChanges;
+  const unevaluatedChanges = totalChanges - evaluatedChanges;
 
-  const successRate = percentage(
-    successfulChanges,
-    evaluatedChanges
-  );
+  const successRate = percentage(successfulChanges, evaluatedChanges);
 
-  const failureRate = percentage(
-    unsuccessfulChanges,
-    evaluatedChanges
-  );
+  const failureRate = percentage(unsuccessfulChanges, evaluatedChanges);
 
   return {
     totalChanges,

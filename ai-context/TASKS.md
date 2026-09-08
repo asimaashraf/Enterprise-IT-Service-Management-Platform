@@ -53,3 +53,18 @@ Backend verification complete. All mandatory backend capabilities implemented an
 - Docker Compose configuration, image build/startup, API health, MongoDB/Redis health, worker startup, and real BullMQ notification processing were verified locally.
 - MongoDB, Redis, SMTP, BullMQ workers, Socket.IO, and email delivery need runtime/E2E verification.
 - SMTP email delivery: IMPLEMENTED but UNVERIFIED at runtime — requires SMTP credentials not available in the test environment.
+
+## Phase 11A ? Analytics backend
+
+- [x] Corrected ADMIN cohort, breach/median calculations, tenant-scoped date filters, and asset-history semantics; reporting queries/types/API documentation aligned. Analytics regressions: 99 passed; backend build and diff whitespace check passed. Phase 11B frontend remains pending.
+
+## Phase 11B ? Analytics frontend
+
+- [x] Added Recharts, typed analytics API/session-scoped hooks, shared UTC date filters, live Dashboard cards, and six analytics visualizations. Frontend typecheck/build pass; lint has four pre-existing User Management warnings; diff whitespace check passes. Phase 11C browser/manual verification remains pending.
+
+## Phase 11C follow-up
+
+- [x] Confirmed stale Docker API used the EMPLOYEE performance cohort; rebuilt only API. Runtime now excludes the reported employee and returns exactly the two active same-tenant ADMINs. No backend source changes.
+- [x] Removed analytics chart/data-list inner vertical scrollers and grid card stretching. Shared shell unchanged.
+- [x] Bound the authenticated shell's flex content column and scroll viewport with `min-h-0`, eliminating Analytics' excess post-content scroll range without changing chart sizing.
+- [ ] Confirm recorded blank-above-content symptom on desktop/mobile in a connected browser; no browser was available during this pass.

@@ -1,118 +1,85 @@
-// ==========================================
-// ANALYTICS TYPES
-// ==========================================
+export interface TechnicianPerformance {
+  technicianId: string;
+  technicianName: string;
+  email: string;
 
-export interface CountBreakdown {
-  [key: string]: number;
+  totalAssigned: number;
+  openIncidents: number;
+  inProgressIncidents: number;
+  resolvedIncidents: number;
+  closedIncidents: number;
+
+  totalResolvedOrClosed: number;
+  resolutionRate: number;
+
+  averageResolutionTimeHours: number | null;
 }
 
-// ==========================================
-// INCIDENT ANALYTICS
-// ==========================================
-
-export interface IncidentAnalytics {
-  total: number;
-
-  // Status
+export interface IncidentTrendsAnalytics {
+  totalIncidents: number;
   open: number;
   inProgress: number;
   pending: number;
   resolved: number;
   closed: number;
-
-  // Existing priority/severity highlights
-  critical: number;
-  highPriority: number;
-
-  // Full breakdowns
-  byPriority: CountBreakdown;
-  bySeverity: CountBreakdown;
-  byStatus: CountBreakdown;
-
-  // Resolution metrics
-  averageResolutionTimeMinutes: number;
-  averageResolutionTimeHours: number;
-
-  // Time-series
-  overTime: IncidentTimeSeries[];
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  bySeverity: Record<string, number>;
+  trend: Array<{ date: string; count: number }>;
 }
 
-// ==========================================
-// INCIDENT TIME SERIES
-// ==========================================
-
-export interface IncidentTimeSeries {
-  date: string;
-  count: number;
-}
-
-// ==========================================
-// PROBLEM ANALYTICS
-// ==========================================
-
-export interface ProblemAnalytics {
-  total: number;
-
-  open: number;
-  underInvestigation: number;
-  knownError: number;
-  resolved: number;
-  closed: number;
-
-  highPriority: number;
-
-  byPriority: CountBreakdown;
-  byStatus: CountBreakdown;
-}
-
-// ==========================================
-// SERVICE REQUEST ANALYTICS
-// ==========================================
-
-export interface ServiceRequestAnalytics {
-  total: number;
-
-  pending: number;
-  approved: number;
-  inProgress: number;
-  completed: number;
-  rejected: number;
-  cancelled: number;
-
-  byPriority: CountBreakdown;
-  byType: CountBreakdown;
-  byStatus: CountBreakdown;
-}
-
-// ==========================================
-// SLA ANALYTICS
-// ==========================================
-
-export interface SLAAnalytics {
-  total: number;
-
+export interface SLAComplianceAnalytics {
+  totalSLAs: number;
   active: number;
   completed: number;
-
   responseBreached: number;
   resolutionBreached: number;
-
   totalBreached: number;
   compliant: number;
-
   complianceRate: number;
+  byPriority: Record<string, number>;
+  byStatus: Record<string, number>;
 }
 
-// ==========================================
-// ANALYTICS OVERVIEW
-// ==========================================
+export interface ResolutionTimeAnalytics {
+  totalResolvedIncidents: number;
+  averageResolutionHours: number | null;
+  medianResolutionHours: number | null;
+  byPriority: Record<string, number>;
+}
 
-export interface AnalyticsOverview {
-  incidents: IncidentAnalytics;
+export interface AssetHealthAnalytics {
+  totalAssets: number;
 
-  problems: ProblemAnalytics;
+  available: number;
+  assigned: number;
+  maintenance: number;
+  retired: number;
 
-  serviceRequests: ServiceRequestAnalytics;
+  activeAssets: number;
+  healthyAssets: number;
 
-  sla: SLAAnalytics;
+  warrantyAlerts: number;
+  maintenanceAlerts: number;
+  lifecycleAlerts: number;
+
+  healthRate: number;
+  maintenanceRate: number;
+  retiredRate: number;
+}
+
+export interface ChangeSuccessRateAnalytics {
+  totalChanges: number;
+
+  completed: number;
+  failed: number;
+  cancelled: number;
+
+  successfulChanges: number;
+  unsuccessfulChanges: number;
+  evaluatedChanges: number;
+  unevaluatedChanges: number;
+
+  successRate: number;
+  failureRate: number;
 }
