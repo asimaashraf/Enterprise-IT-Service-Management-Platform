@@ -29,7 +29,7 @@ export function MobileSidebar({ triggerClassName }: MobileSidebarProps) {
       >
         <Menu className="h-5 w-5" />
       </Button>
-      <SheetContent side="left" className="w-64 p-0">
+      <SheetContent side="left" className="w-64 max-w-[calc(100vw-2rem)] p-0">
         <SheetHeader className="sr-only">
           <SheetTitle>Navigation Menu</SheetTitle>
           <SheetDescription>Navigate to ITSM modules</SheetDescription>

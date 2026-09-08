@@ -39,7 +39,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
           {unreadCount > 0 && <Badge variant="destructive" className="absolute -right-0.5 -top-0.5 h-4 min-w-4 justify-center px-1 text-[10px]">{unreadCount > 99 ? '99+' : unreadCount}</Badge>}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-0">
+      <DropdownMenuContent align="end" className="w-[min(24rem,calc(100vw-2rem))] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto p-0">
         <DropdownMenuLabel className="flex items-center justify-between px-4 py-3">
           <span>Notifications</span>
           <span className="font-normal text-muted-foreground">{unreadCount} unread</span>

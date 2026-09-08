@@ -77,6 +77,7 @@ export function DataTable<TData>({
   onRetry,
   className,
 }: DataTableProps<TData>) {
+  const pageSizeId = React.useId()
   const [internalPagination, setInternalPagination] = React.useState<PaginationState>({
     pageIndex: pagination?.pageIndex ?? 0,
     pageSize: pagination?.pageSize ?? 10,
@@ -135,36 +136,57 @@ export function DataTable<TData>({
   const currentPage = table.getState().pagination.pageIndex
 
   return (
-    <div className={cn('flex flex-col gap-4', className)}>
-      <div className="rounded-lg border overflow-hidden">
+    <div className={cn('flex min-w-0 max-w-full flex-col gap-4', className)}>
+      <div className="min-w-0 max-w-full rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
+                  const sorted = header.column.getIsSorted()
                   return (
                     <TableHead
                       key={header.id}
+                      aria-sort={
+                        sorted === 'asc'
+                          ? 'ascending'
+                          : sorted === 'desc'
+                            ? 'descending'
+                            : canSort
+                              ? 'none'
+                              : undefined
+                      }
                       className={cn(
                         'bg-muted/30',
-                        canSort && 'cursor-pointer select-none hover:bg-muted/50',
+                        canSort && 'select-none hover:bg-muted/50',
                       )}
-                      onClick={
-                        canSort ? header.column.getToggleSortingHandler() : undefined
-                      }
                     >
-                      <div className="flex items-center">
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                        {canSort && (
+                      {canSort ? (
+                        <button
+                          type="button"
+                          className="flex min-h-10 w-full items-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          onClick={header.column.getToggleSortingHandler()}
+                          aria-label={`Sort by ${header.id}`}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
                           <SortIcon column={header.column} />
-                        )}
-                      </div>
+                        </button>
+                      ) : (
+                        <div className="flex items-center">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext(),
+                              )}
+                        </div>
+                      )}
                     </TableHead>
                   )
                 })}
@@ -240,7 +262,7 @@ export function DataTable<TData>({
             )}
           </p>
 
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <Button
               variant="outline"
               size="icon"
@@ -262,7 +284,7 @@ export function DataTable<TData>({
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            <span className="flex items-center gap-1 px-2 text-sm text-muted-foreground">
+            <span className="flex flex-wrap items-center gap-1 px-2 text-sm text-muted-foreground">
               Page{' '}
               <span className="font-medium text-foreground">
                 {currentPage + 1}
@@ -297,6 +319,8 @@ export function DataTable<TData>({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>Rows per page:</span>
               <select
+                id={pageSizeId}
+                aria-label="Rows per page"
                 className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 value={pageSize}
                 onChange={(e) =>

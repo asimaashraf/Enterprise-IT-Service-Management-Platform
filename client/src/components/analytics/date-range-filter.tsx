@@ -47,7 +47,7 @@ export function DateRangeFilter({
   return (
     <div className="space-y-3 rounded-lg border bg-card p-4">
       <form className="flex flex-wrap items-end gap-3" onSubmit={submit}>
-        <div className="min-w-0 flex-1 space-y-2 sm:flex-none">
+        <div className="w-full min-w-0 space-y-2 sm:w-auto sm:flex-1 sm:basis-40">
           <Label htmlFor={`${id}-start`}>Start date (UTC)</Label>
           <Input
             id={`${id}-start`}
@@ -57,7 +57,7 @@ export function DateRangeFilter({
             aria-describedby={error ? `${id}-error` : undefined}
           />
         </div>
-        <div className="min-w-0 flex-1 space-y-2 sm:flex-none">
+        <div className="w-full min-w-0 space-y-2 sm:w-auto sm:flex-1 sm:basis-40">
           <Label htmlFor={`${id}-end`}>End date (UTC)</Label>
           <Input
             id={`${id}-end`}

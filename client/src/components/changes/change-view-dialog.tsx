@@ -30,7 +30,7 @@ const displayDate = (value?: string) => {
 }
 
 function Row({ label, value }: { label: string; value: string }) {
-  return <div className="grid grid-cols-[9rem_1fr] gap-3 py-2 text-sm"><span className="text-muted-foreground">{label}</span><span className="break-words">{value}</span></div>
+  return <div className="grid gap-1 py-2 text-sm sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3"><span className="text-muted-foreground">{label}</span><span className="min-w-0 break-words">{value}</span></div>
 }
 
 interface ChangeViewDialogProps {

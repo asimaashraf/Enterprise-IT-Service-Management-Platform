@@ -108,10 +108,10 @@ export function FilterBar({
       {fields.map((field) => {
         if (field.type === 'search') {
           return (
-            <div key={field.key} className="relative flex items-center">
+            <div key={field.key} className="relative flex w-full min-w-0 items-center sm:w-auto sm:flex-1 sm:basis-48">
               <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
-                className="h-9 w-48 pl-9 pr-8"
+                className="h-9 w-full min-w-0 pl-9 pr-8"
                 placeholder={field.placeholder ?? `Search ${field.label}…`}
                 value={localSearch[field.key] ?? ''}
                 onChange={(e) => handleSearchChange(field.key, e.target.value)}
@@ -141,7 +141,7 @@ export function FilterBar({
               value={values[field.key] ?? ''}
               onValueChange={(v) => onChange(field.key, v)}
             >
-              <SelectTrigger className="h-9 w-40" aria-label={field.label}>
+              <SelectTrigger className="h-9 w-full sm:w-40" aria-label={field.label}>
                 <SelectValue placeholder={field.placeholder ?? field.label} />
               </SelectTrigger>
               <SelectContent>

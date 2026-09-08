@@ -86,9 +86,10 @@ export function ServiceRequestCreateDialog({
         >
           <div className="space-y-4">
             <FormItem>
-              <FormLabel required>Title</FormLabel>
+              <FormLabel htmlFor="service-request-title" required>Title</FormLabel>
               <FormControl>
                 <Input
+                  id="service-request-title"
                   placeholder="Brief request summary"
                   {...form.register("title")}
                 />
@@ -98,9 +99,10 @@ export function ServiceRequestCreateDialog({
               )}
             </FormItem>
             <FormItem>
-              <FormLabel required>Description</FormLabel>
+              <FormLabel htmlFor="service-request-description" required>Description</FormLabel>
               <FormControl>
                 <Textarea
+                  id="service-request-description"
                   rows={4}
                   placeholder="Describe what you need"
                   {...form.register("description")}
@@ -114,7 +116,7 @@ export function ServiceRequestCreateDialog({
             </FormItem>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormItem>
-                <FormLabel required>Request Type</FormLabel>
+                <FormLabel htmlFor="service-request-type" required>Request Type</FormLabel>
                 <FormControl>
                   <Select
                     value={form.watch("type") ?? ""}
@@ -126,7 +128,7 @@ export function ServiceRequestCreateDialog({
                       )
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="service-request-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -145,7 +147,7 @@ export function ServiceRequestCreateDialog({
                 )}
               </FormItem>
               <FormItem>
-                <FormLabel>Priority</FormLabel>
+                <FormLabel htmlFor="service-request-priority">Priority</FormLabel>
                 <FormControl>
                   <Select
                     value={form.watch("priority") ?? ""}
@@ -156,7 +158,7 @@ export function ServiceRequestCreateDialog({
                       )
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="service-request-priority">
                       <SelectValue placeholder="Medium" />
                     </SelectTrigger>
                     <SelectContent>

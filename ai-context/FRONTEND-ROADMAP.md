@@ -1,3 +1,4 @@
+
 # MERN-014 ITSM — Frontend Development Roadmap
 
 **Frontend Stack:** React + TypeScript + Redux Toolkit + React Query + shadcn/ui + Tailwind CSS + Zod + React Hook Form + TanStack Table + Axios + Recharts + React Router
@@ -42,82 +43,6 @@ The `RoleGuard` controls navigation elements, pages, and UI actions based on the
 **Golden Rule:** Client-side role protection exists only for user experience and interface control.
 
 Real authorization must always be enforced again by the backend. Hiding a button or route in the frontend must never be treated as a security boundary.
-
-## RBAC and Assignment Model
-
-### Authentication Roles
-
-The platform uses two primary authentication roles:
-
-- ADMIN
-- EMPLOYEE
-
-### EMPLOYEE
-
-EMPLOYEE represents a normal organization end user/requester.
-
-An EMPLOYEE may:
-
-- Create incidents
-- Create service requests
-- View and track records they are authorized to access
-- View their own request/incident status
-- Search and read Knowledge Base content
-- Receive relevant notifications
-
-An EMPLOYEE must not:
-
-- Be treated as an IT technician
-- Be selected as an incident/service-request assignee
-- Assign work to other users
-- Perform administrative workflow actions
-- Manage users, support teams, organization settings, or global SLA policies
-
-### ADMIN
-
-ADMIN represents the tenant's IT operations/support side.
-
-An ADMIN may:
-
-- Manage incidents and service requests
-- Assign eligible support work
-- Perform allowed workflow transitions
-- Manage assets, changes, SLA configuration, knowledge content, and tenant administration
-- Manage departments and support teams where authorized
-
-### Support Teams
-
-Operational support must be modeled through Support Teams.
-
-Examples:
-
-- Service Desk
-- Hardware Support
-- Network Support
-- Application Support
-
-ADMIN users may belong to one or more support teams.
-
-### Assignment Rule
-
-Incidents and service requests may only be assigned to:
-
-- An eligible ADMIN/support user, or
-- A valid support team when team-level assignment is supported
-
-EMPLOYEE users must never be valid assignees.
-
-### Authorization Rule
-
-Frontend role filtering exists for UX only.
-
-The backend is the authoritative security boundary and must reject:
-
-- Unauthorized assignments
-- Invalid assignees
-- Unauthorized workflow actions
-- Invalid status transitions
-- Cross-tenant access
 
 ## Server State vs Client State
 
@@ -322,30 +247,30 @@ Build reusable components that will be shared across all ITSM modules.
 
 ## Tasks
 
-- [x] Create reusable `DataTable`
-- [x] Use TanStack Table with shadcn Table
-- [x] Support:
+- [ ] Create reusable `DataTable`
+- [ ] Use TanStack Table with shadcn Table
+- [ ] Support:
   - Sorting
   - Pagination
   - Loading state
   - Empty state
-- [x] Create reusable form field wrappers for React Hook Form + Zod
-- [x] Support shadcn Input and Select components
-- [x] Create `StatusBadge`
-- [x] Add status-based badge variants
-- [x] Create `ConfirmDialog` using shadcn AlertDialog
-- [x] Create `PageHeader`
-- [x] Support:
+- [ ] Create reusable form field wrappers for React Hook Form + Zod
+- [ ] Support shadcn Input and Select components
+- [ ] Create `StatusBadge`
+- [ ] Add status-based badge variants
+- [ ] Create `ConfirmDialog` using shadcn AlertDialog
+- [ ] Create `PageHeader`
+- [ ] Support:
   - Page title
   - Breadcrumb
   - Action button slot
-- [x] Create generic/configurable `FilterBar`
-- [x] Support:
+- [ ] Create generic/configurable `FilterBar`
+- [ ] Support:
   - Search input
   - Dropdown filters
-- [x] Create `EmptyState`
-- [x] Create `LoadingSpinner`
-- [x] Create `ErrorState`
+- [ ] Create `EmptyState`
+- [ ] Create `LoadingSpinner`
+- [ ] Create `ErrorState`
 
 ## Exit Criteria
 
@@ -363,52 +288,39 @@ Incident Management will serve as the reference/template architecture for the mo
 
 ## Tasks
 
-- [x] Create `incidentApi.ts`
-- [x] Create React Query hooks for:
+- [ ] Create `incidentApi.ts`
+- [ ] Create React Query hooks for:
   - List incidents
   - Get incident
   - Create incident
   - Update incident
   - Delete incident
-  - Assign incident (via update)
-  - Escalate incident (via update)
-- [x] Build Incident List page
-- [x] Use reusable `DataTable`
-- [x] Use reusable `FilterBar`
-- [x] Add filters for:
+  - Assign incident
+  - Escalate incident
+- [ ] Build Incident List page
+- [ ] Use reusable `DataTable`
+- [ ] Use reusable `FilterBar`
+- [ ] Add filters for:
   - Status
   - Priority
   - Severity
-- [x] Build Incident Create form
-- [x] Build Incident Edit form
-- [x] Create Zod validation matching backend validation rules
-- [x] Build Incident Detail page
-- [x] Display:
+- [ ] Build Incident Create form
+- [ ] Build Incident Edit form
+- [ ] Create Zod validation matching backend validation rules
+- [ ] Build Incident Detail page
+- [ ] Display:
   - Status
   - Priority
   - Severity
   - Assignment
   - Escalation
   - Resolution tracking
-- [x] Add PDF export action
-- [x] Apply role-based UI controls for employee and admin actions
-- [ ] Restrict incident assignment UI to eligible ADMIN/support users or support teams
-- [ ] Exclude EMPLOYEE users from incident assignee options
-- [ ] Show only incident workflow actions allowed for the authenticated user's role
-- [ ] Enforce valid incident status transitions in the UI based on backend rules
-- [ ] Verify backend rejection of invalid incident assignees
-- [ ] Verify backend rejection of unauthorized incident workflow transitions
+- [ ] Add PDF export action
+- [ ] Apply role-based UI controls for employee and admin actions
 
 ## Exit Criteria
 
-Phase 4 is complete when:
-
-- EMPLOYEE users can create and track incidents they are authorized to access
-- ADMIN/support users can process eligible assigned incidents
-- EMPLOYEE users cannot be operational assignees
-- Invalid assignments are rejected by the backend
-- Unauthorized workflow transitions are rejected by the backend
-- Frontend role controls match backend authorization behavior
+Phase 4 is complete when the complete Incident CRUD and status workflow works against the real backend API.
 
 ---
 
@@ -434,58 +346,10 @@ Implement the Service Request module by reusing the patterns established in Inci
 - [ ] Build Service Request Detail page
 - [ ] Implement status tracking UI
 - [ ] Connect all supported workflows to the real backend
-- [ ] Restrict service-request assignment UI to eligible ADMIN/support users or support teams
-- [ ] Exclude EMPLOYEE users from service-request assignee options
-- [ ] Show only service-request workflow actions allowed for the authenticated user's role
-- [ ] Enforce valid service-request status transitions in the UI based on backend rules
-- [ ] Verify backend rejection of invalid service-request assignees
-- [ ] Verify backend rejection of unauthorized service-request workflow transitions
 
 ## Exit Criteria
 
-Phase 5 is complete when:
-
-- EMPLOYEE users can create and track service requests they are authorized to access
-- ADMIN/support users can process eligible assigned service requests
-- EMPLOYEE users cannot be operational assignees
-- Invalid assignments are rejected by the backend
-- Unauthorized workflow transitions are rejected by the backend
-- Frontend role controls match backend authorization behavior
-
----
-
-# Phase 5A — Organization & Support Assignment Foundation
-
-## Goal
-
-Establish the minimum organization/support structure required for professional Incident and Service Request assignment before later modules are developed.
-
-## Tasks
-
-- [ ] Verify/integrate the Department foundation required by the existing backend architecture
-- [ ] Verify/integrate the Support Team foundation
-- [ ] Support ADMIN membership in Support Teams
-- [ ] Define/display eligible operational assignees from ADMIN/support membership
-- [ ] Ensure EMPLOYEE users are never operational assignees
-- [ ] Support the minimum admin UI necessary to manage support-team membership if the backend already supports it
-- [ ] Integrate eligible assignee selection with Incident Management
-- [ ] Integrate eligible assignee selection with Service Request Management
-- [ ] Keep frontend filtering as UX only
-- [ ] Require backend validation for assignment eligibility and tenant isolation
-- [ ] Verify cross-tenant users cannot become assignment targets
-- [ ] Add/verify frontend integration behavior for invalid assignment responses
-
-## Exit Criteria
-
-Phase 5A is complete when:
-
-- Department/Support Team foundation required for assignment is usable
-- ADMIN/support membership can determine eligible assignees
-- EMPLOYEE users cannot appear as operational assignees
-- Incident assignment follows the shared assignment contract
-- Service Request assignment follows the shared assignment contract
-- Backend remains authoritative for assignment eligibility and tenant isolation
-- Existing Phase 4 and Phase 5 workflows remain functional
+Service Request creation, listing, detail viewing, and status tracking work correctly with the backend.
 
 ---
 
@@ -524,6 +388,30 @@ Provide frontend management for IT assets and their lifecycle.
 
 Asset CRUD, ownership, assignment, warranty, lifecycle transitions, and history work against the backend.
 
+## Role Behavior
+
+### ADMIN
+- Can view all assets within their organization
+- Can create and edit assets
+- Can assign/unassign assets
+- Can manage ownership, warranty, and lifecycle information
+- Can perform lifecycle transitions
+- Can view asset history and audit information
+
+### EMPLOYEE
+- Can view only assets assigned to them or otherwise authorized
+- Cannot create, edit, delete, assign, unassign, or retire assets
+- Cannot perform lifecycle transitions
+- Can view relevant asset details, warranty information, and assignment information
+- Can use their assigned asset when creating an Incident or Service Request
+
+## Assignment Rules
+
+- Assets may be assigned only to active same-tenant EMPLOYEE users
+- Cross-tenant assignment must be rejected by the backend
+- Inactive or nonexistent users cannot receive new asset assignments
+- Backend authorization is authoritative; frontend filtering is UX only
+
 ---
 
 # Phase 7 — SLA Engine UI
@@ -535,6 +423,10 @@ Expose SLA configuration and SLA tracking through the frontend.
 ## Tasks
 
 - [ ] Build SLA policy configuration screens
+
+
+
+
 - [ ] Support business hours configuration
 - [ ] Support timezone configuration
 - [ ] Support response targets
@@ -689,16 +581,11 @@ Authenticated users receive appropriate real-time notifications and can view not
 
 Provide administrative interfaces for tenant-scoped organization management.
 
-Phase 13 builds on the Phase 5A organization/support foundation and completes and polishes the full administrative management experience.
-
 ## Tasks
 
-- [x] Build Organization Profile screen
-  - Phase 13B: profile inside `/settings`; ADMIN edits name/slug/description, EMPLOYEE reads only. Tenant is resolved from the authenticated session.
-- [x] Build Department Management UI
-  - Phase 13B: ADMIN-only `/settings/departments`; create/edit/status/delete, search, status filter, confirmation, and session-scoped queries. No user assignment relationship.
-- [x] Build Support Team Management UI
-  - Existing Phase 5A `/support-teams` implementation confirmed in code: CRUD, active status, and active ADMIN membership selection behind RoleGuard.
+- [ ] Build Organization Profile screen
+- [ ] Build Department Management UI
+- [ ] Build Support Team Management UI
 - [x] Build User Management screen
   - Admin-only page listing all users in the tenant
   - Invite Employee dialog (POST /api/v1/invitations)
@@ -709,22 +596,13 @@ Phase 13 builds on the Phase 5A organization/support foundation and completes an
   - Search by name or email, role filter, status filter
   - Self-action guards (cannot deactivate/block/demote your own account)
   - Last-admin guards prevent orphaning the tenant's admin count
-- [x] Build Role Management controls
-  - Phase 13C: ADMIN/EMPLOYEE promotion and demotion through dedicated User Management actions, with self-action and last-active-admin guards. No custom roles, role CRUD, or permissions matrix.
+- [ ] Build Role Management controls
 - [x] Restrict administrative interfaces to appropriate roles
   - `RoleGuard` component wraps `/users` route
   - Navigation filters `User Management` from sidebar for non-admin users
   - Backend remains the authoritative security boundary on every endpoint
-- [x] Build Audit Log Viewer
-  - Phase 13D: ADMIN-only `/settings/audit-logs`, Settings card, local search/filters and 25-record pages, responsive table/cards, and read-only metadata dialog.
-- [x] Ensure audit logs remain tenant-scoped
-  - Backend controller derives organization from JWT; repository filters by organization. Existing `tests/audit.test.ts` covers cross-tenant exclusion and EMPLOYEE 403. Frontend audit queries include tenant/user/role/session version, shared safely with Asset audit history.
-
-Phase 13B verification: frontend typecheck (including explicit app project check), lint, and production build passed; lint retains four pre-existing User Management hook warnings and build reports a chunk-size warning. Browser CRUD, role/session transition, and responsive checks remain pending; no connected browser was available.
-
-Phase 13C implementation: added name/email-only user editing; centralized session-scoped user, invitation, team, and operational-assignee queries across management, Changes, Assets, escalation, and RCA consumers. User/team mutations invalidate exact affected queries. Team deletion preserves backend 409 feedback; inactive escalation targets and unavailable team members require valid selections. Existing assignment contracts and Settings/navigation guards are preserved.
-
-Phase 13D verification: frontend typecheck, explicit app TypeScript check, lint, production build, diff check, and five focused audit contract tests pass. Four existing User Management lint warnings and bundle-size warning remain. Backend files were not changed; backend audit coverage was inspected, not rerun. The API still loads the entire tenant dataset: local paging limits rendered rows, not transfer/memory usage. There are no server filters, pagination, detail, or export endpoints. Phase 13 implementation is ready for final authenticated and responsive manual verification.
+- [ ] Build Audit Log Viewer
+- [ ] Ensure audit logs remain tenant-scoped
 
 ## Exit Criteria
 
@@ -736,21 +614,22 @@ Administrators can manage supported organization resources through the frontend 
 
 ## Goal
 
-Ensure the complete application is usable and consistent across devices and basic accessibility requirements.
+Ensure the complete application is usable and consistent across desktop, tablet, and mobile layouts.
 
 ## Tasks
 
-- [ ] Manually test every page on mobile
-- [ ] Manually test every page on tablet
-- [ ] Manually test every page on desktop
-- [ ] Confirm mobile fallback/card presentation for complex DataTables where required
-- [ ] Test keyboard navigation
-- [ ] Verify form labels
-- [ ] Verify focus states
-- [ ] Review basic accessibility behavior
-- [ ] Ensure loading states are consistent
-- [ ] Ensure empty states are consistent
-- [ ] Ensure error states are consistent
+- [x] Audit and fix responsive shell, tables, detail pages, dialogs, forms, charts, administration pages, and notifications
+- [x] Manually test representative mobile surfaces and viewport geometry
+- [x] Manually test representative tablet surfaces and viewport geometry
+- [x] Manually test representative desktop surfaces and viewport geometry
+- [x] Confirm mobile fallback/card presentation or safe horizontal scrolling for complex DataTables where verified
+
+- [x] Complete the focused accessibility implementation pass across shared navigation, tables, dialogs, notifications, administration, and major forms
+- [x] Test keyboard navigation on representative authenticated and public surfaces
+- [x] Verify form labels on representative forms
+- [x] Verify focus states on representative controls
+- [x] Review basic accessibility behavior
+- [x] Ensure loading, empty, and error states remain represented
 
 ## Exit Criteria
 

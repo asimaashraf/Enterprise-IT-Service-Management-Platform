@@ -310,7 +310,7 @@ function UserManagementContent() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <p className="text-sm font-medium text-muted-foreground">Total Users</p>
@@ -354,6 +354,7 @@ function UserManagementContent() {
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            aria-label="Search users by name or email"
             placeholder="Search by name or email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -416,8 +417,8 @@ function UserManagementContent() {
               No users match the current filters.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="max-w-full overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="px-3 py-2 font-medium">Name</th>
@@ -576,8 +577,8 @@ function UserManagementContent() {
               No invitations have been sent yet.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="max-w-full overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="px-3 py-2 font-medium">Email</th>
@@ -635,17 +636,19 @@ function UserManagementContent() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="invite-user-title"
+          aria-describedby="invite-user-description"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => !inviteMutation.isPending && setShowInvite(false)}
         >
           <div
-            className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg sm:p-6 [overflow-wrap:anywhere]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold tracking-tight">
+            <h3 id="invite-user-title" className="text-lg font-semibold tracking-tight">
               Invite a new user
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p id="invite-user-description" className="mt-1 text-sm text-muted-foreground">
               An invitation email will be sent. The recipient must accept it
               within 48 hours.
             </p>
@@ -711,14 +714,16 @@ function UserManagementContent() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="user-action-title"
+          aria-describedby="user-action-description"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() => !isPerforming && setPendingUserAction(null)}
         >
           <div
-            className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg sm:p-6 [overflow-wrap:anywhere]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <h3 id="user-action-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
               <AlertCircle className="h-5 w-5 text-destructive" aria-hidden />
               {pendingUserAction.action === 'block'
                 ? 'Block / remove user'
@@ -730,7 +735,7 @@ function UserManagementContent() {
                 ? 'Promote to admin'
                 : 'Demote to employee'}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p id="user-action-description" className="mt-2 text-sm text-muted-foreground">
               {pendingUserAction.action === 'block'
                 ? `${pendingUserAction.user.name} will be removed from active use. Their email will be tombstoned and historical records (incidents, requests, approvals, audit) will be preserved.`
                 : pendingUserAction.action === 'deactivate'
@@ -772,20 +777,22 @@ function UserManagementContent() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="revoke-invitation-title"
+          aria-describedby="revoke-invitation-description"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={() =>
             !revokeInvitationMutation.isPending && setPendingInviteRevoke(null)
           }
         >
           <div
-            className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-lg sm:p-6 [overflow-wrap:anywhere]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <h3 id="revoke-invitation-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
               <AlertCircle className="h-5 w-5 text-destructive" aria-hidden />
               Revoke invitation
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p id="revoke-invitation-description" className="mt-2 text-sm text-muted-foreground">
               The invitation to <strong>{pendingInviteRevoke.email}</strong>{' '}
               will be revoked and can no longer be accepted.
             </p>

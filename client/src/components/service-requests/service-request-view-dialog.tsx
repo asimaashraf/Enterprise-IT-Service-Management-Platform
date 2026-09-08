@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { getServiceRequestUserDisplay, normalizeServiceRequestStatus, type ServiceRequest } from '@/types/serviceRequest'
 
 const date = (value?: string) => (value ? format(new Date(value), 'MMM d, yyyy HH:mm') : '—')
-const Row = ({ label, value }: { label: string; value: string }) => <div className="flex items-start justify-between gap-4 py-2 text-sm"><span className="text-muted-foreground">{label}</span><span className="text-right">{value}</span></div>
+const Row = ({ label, value }: { label: string; value: string }) => <div className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-start sm:justify-between sm:gap-4"><span className="text-muted-foreground">{label}</span><span className="min-w-0 break-words sm:text-right">{value}</span></div>
 
 export function ServiceRequestViewDialog({ open, onOpenChange, serviceRequest }: { open: boolean; onOpenChange: (open: boolean) => void; serviceRequest: ServiceRequest | null }) {
   if (!serviceRequest) return null

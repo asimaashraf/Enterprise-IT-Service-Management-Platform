@@ -37,11 +37,11 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
         <nav
           aria-label="Breadcrumb"
-          className="flex items-center gap-1 text-sm text-muted-foreground"
+          className="flex flex-wrap items-center gap-1 break-words text-sm text-muted-foreground"
         >
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1
@@ -71,22 +71,22 @@ export function PageHeader({
         </nav>
       )}
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col items-start justify-between gap-4 lg:flex-row">
+        <div className="flex min-w-0 items-start gap-3">
           {Icon && (
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
               <Icon className="h-5 w-5 text-primary" />
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <div className="min-w-0">
+            <h1 className="break-words text-2xl font-bold tracking-tight">{title}</h1>
             {description && (
-              <p className="text-muted-foreground">{description}</p>
+              <p className="break-words text-muted-foreground">{description}</p>
             )}
           </div>
         </div>
 
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&>div]:flex-wrap">{actions}</div>}
       </div>
 
       <Separator className="mt-2" />

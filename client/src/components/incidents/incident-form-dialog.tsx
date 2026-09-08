@@ -106,9 +106,10 @@ export function IncidentFormDialog({
           <div className="space-y-4">
             {/* Title */}
             <FormItem>
-              <FormLabel required>Title</FormLabel>
+              <FormLabel htmlFor="incident-title" required>Title</FormLabel>
               <FormControl>
                 <Input
+                  id="incident-title"
                   placeholder="Brief summary of the incident"
                   {...form.register('title')}
                   aria-invalid={!!form.formState.errors.title}
@@ -121,10 +122,11 @@ export function IncidentFormDialog({
 
             {/* Description */}
             <FormItem>
-              <FormLabel required>Description</FormLabel>
+              <FormLabel htmlFor="incident-description" required>Description</FormLabel>
               <FormControl>
                 <Textarea
                   placeholder="Describe the incident in detail…"
+                  id="incident-description"
                   rows={4}
                   {...form.register('description')}
                   aria-invalid={!!form.formState.errors.description}
@@ -137,13 +139,13 @@ export function IncidentFormDialog({
 
             {/* Priority */}
             <FormItem>
-              <FormLabel>Priority</FormLabel>
+              <FormLabel htmlFor="incident-priority">Priority</FormLabel>
               <FormControl>
                 <Select
                   value={form.watch('priority') ?? ''}
                   onValueChange={(v) => form.setValue('priority', v as CreateIncidentFormData['priority'], { shouldValidate: true })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="incident-priority">
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -160,13 +162,13 @@ export function IncidentFormDialog({
 
             {/* Severity */}
             <FormItem>
-              <FormLabel>Severity</FormLabel>
+              <FormLabel htmlFor="incident-severity">Severity</FormLabel>
               <FormControl>
                 <Select
                   value={form.watch('severity') ?? ''}
                   onValueChange={(v) => form.setValue('severity', v as CreateIncidentFormData['severity'], { shouldValidate: true })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="incident-severity">
                     <SelectValue placeholder="Select severity" />
                   </SelectTrigger>
                   <SelectContent>

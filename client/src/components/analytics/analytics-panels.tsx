@@ -163,9 +163,9 @@ export function ValueBars({
           {data.map((row, index) => (
             <div
               key={`${row.name}-${index}`}
-              className="flex justify-between gap-4"
+              className="flex flex-wrap justify-between gap-4"
             >
-              <dt>{row.name}</dt>
+              <dt className="min-w-0 break-words">{row.name}</dt>
               <dd>
                 {number(row.value)}
                 {unit === 'hours' ? ' h' : ''}

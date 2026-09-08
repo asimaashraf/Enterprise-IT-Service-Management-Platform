@@ -148,8 +148,9 @@ export function AssetFormDialog({
         <Form form={form} id="asset-form" onSubmit={form.handleSubmit(submit)}>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormItem>
-              <FormLabel required>Asset ID</FormLabel>
+              <FormLabel htmlFor="asset-id" required>Asset ID</FormLabel>
               <Input
+                id="asset-id"
                 {...form.register('assetId')}
                 disabled={Boolean(asset)}
                 aria-invalid={Boolean(form.formState.errors.assetId)}
@@ -157,48 +158,48 @@ export function AssetFormDialog({
               {form.formState.errors.assetId && <FormMessage>{form.formState.errors.assetId.message}</FormMessage>}
             </FormItem>
             <FormItem>
-              <FormLabel required>Name</FormLabel>
-              <Input {...form.register('name')} aria-invalid={Boolean(form.formState.errors.name)} />
+              <FormLabel htmlFor="asset-name" required>Name</FormLabel>
+              <Input id="asset-name" {...form.register('name')} aria-invalid={Boolean(form.formState.errors.name)} />
               {form.formState.errors.name && <FormMessage>{form.formState.errors.name.message}</FormMessage>}
             </FormItem>
             <FormItem>
-              <FormLabel required>Category</FormLabel>
+              <FormLabel htmlFor="asset-category" required>Category</FormLabel>
               <Select
                 value={form.watch('category')}
                 onValueChange={(value) => form.setValue('category', value as AssetCategory, { shouldValidate: true })}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="asset-category"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {assetCategories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
                 </SelectContent>
               </Select>
             </FormItem>
             <FormItem>
-              <FormLabel>Purchase price</FormLabel>
-              <Input type="number" min="0" step="0.01" {...form.register('purchasePrice')} />
+              <FormLabel htmlFor="asset-purchase-price">Purchase price</FormLabel>
+              <Input id="asset-purchase-price" type="number" min="0" step="0.01" {...form.register('purchasePrice')} />
               {form.formState.errors.purchasePrice && <FormMessage>{form.formState.errors.purchasePrice.message}</FormMessage>}
             </FormItem>
             <FormItem>
-              <FormLabel>Purchase date</FormLabel>
-              <Input type="date" {...form.register('purchaseDate')} />
+              <FormLabel htmlFor="asset-purchase-date">Purchase date</FormLabel>
+              <Input id="asset-purchase-date" type="date" {...form.register('purchaseDate')} />
             </FormItem>
             <FormItem>
-              <FormLabel>Warranty provider</FormLabel>
-              <Input {...form.register('warrantyProvider')} />
+              <FormLabel htmlFor="asset-warranty-provider">Warranty provider</FormLabel>
+              <Input id="asset-warranty-provider" {...form.register('warrantyProvider')} />
             </FormItem>
             <FormItem>
-              <FormLabel>Warranty start date</FormLabel>
-              <Input type="date" {...form.register('warrantyStartDate')} />
+              <FormLabel htmlFor="asset-warranty-start">Warranty start date</FormLabel>
+              <Input id="asset-warranty-start" type="date" {...form.register('warrantyStartDate')} />
             </FormItem>
             <FormItem>
-              <FormLabel>Warranty end date</FormLabel>
-              <Input type="date" {...form.register('warrantyEndDate')} />
+              <FormLabel htmlFor="asset-warranty-end">Warranty end date</FormLabel>
+              <Input id="asset-warranty-end" type="date" {...form.register('warrantyEndDate')} />
               {form.formState.errors.warrantyEndDate && <FormMessage>{form.formState.errors.warrantyEndDate.message}</FormMessage>}
             </FormItem>
           </div>
           <FormItem className="mt-4">
-            <FormLabel>Description</FormLabel>
-            <Textarea rows={3} {...form.register('description')} />
+            <FormLabel htmlFor="asset-description">Description</FormLabel>
+            <Textarea id="asset-description" rows={3} {...form.register('description')} />
           </FormItem>
         </Form>
         <DialogFooter>

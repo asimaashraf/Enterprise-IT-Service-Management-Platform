@@ -100,7 +100,7 @@ export function IncidentViewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-3">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-primary shrink-0" />
               <DialogTitle className="font-mono text-base">

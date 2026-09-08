@@ -54,8 +54,8 @@ export function UserMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{name}</p>
-            <p className="text-xs leading-none text-muted-foreground">{email}</p>
+            <p className="break-words text-sm font-medium leading-snug">{name}</p>
+            <p className="break-all text-xs leading-snug text-muted-foreground">{email}</p>
             {user?.role && (
               <p className="mt-1 text-xs font-medium uppercase tracking-wide text-primary">
                 {user.role}

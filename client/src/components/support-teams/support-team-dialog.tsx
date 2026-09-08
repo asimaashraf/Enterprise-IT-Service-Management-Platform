@@ -102,14 +102,14 @@ export function SupportTeamDialog({
         <Form form={form} id="support-team-form" onSubmit={form.handleSubmit(submit)}>
           <div className="space-y-4">
             <FormItem>
-              <FormLabel required>Name</FormLabel>
-              <Input {...form.register('name')} aria-invalid={!!form.formState.errors.name} />
+              <FormLabel htmlFor="support-team-name" required>Name</FormLabel>
+              <Input id="support-team-name" {...form.register('name')} aria-invalid={!!form.formState.errors.name} />
               {form.formState.errors.name && <FormMessage>{form.formState.errors.name.message}</FormMessage>}
             </FormItem>
 
             <FormItem>
-              <FormLabel>Description</FormLabel>
-              <Textarea rows={3} {...form.register('description')} />
+              <FormLabel htmlFor="support-team-description">Description</FormLabel>
+              <Textarea id="support-team-description" rows={3} {...form.register('description')} />
             </FormItem>
 
             {team && (
@@ -122,11 +122,11 @@ export function SupportTeamDialog({
             )}
 
             <FormItem>
-              <FormLabel>Operational members</FormLabel>
+              <FormLabel id="support-team-members-label">Operational members</FormLabel>
               <p className="text-xs text-muted-foreground">
                 Select active ADMIN users. The backend validates tenant scope and membership eligibility.
               </p>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+              <div aria-labelledby="support-team-members-label" className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
                 {candidatesLoading && <p className="text-sm text-muted-foreground">Loading administrators…</p>}
                 {candidatesError && <p className="text-sm text-destructive">Administrators could not be loaded.</p>}
                 {!candidatesLoading && !candidatesError && candidates.length === 0 && (

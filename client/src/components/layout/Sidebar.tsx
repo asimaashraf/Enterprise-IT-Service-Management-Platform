@@ -19,12 +19,12 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground',
+        'flex h-full min-h-0 w-64 max-w-full flex-col bg-sidebar text-sidebar-foreground',
         className,
       )}
     >
       {/* Brand */}
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <span className="text-sm font-bold">IT</span>
         </div>
@@ -34,7 +34,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-4">
+      <ScrollArea className="min-h-0 flex-1 px-3 py-4">
         <nav className="space-y-6">
           {groups.map((group, groupIndex) => (
             <div key={group.label} className="space-y-1">
@@ -59,7 +59,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-3 text-xs text-sidebar-muted">
+      <div className="shrink-0 border-t border-sidebar-border p-3 text-xs text-sidebar-muted">
         <NavLink
           to="/settings"
           onClick={onNavigate}
