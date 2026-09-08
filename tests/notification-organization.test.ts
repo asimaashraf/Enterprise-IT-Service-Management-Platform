@@ -13,6 +13,7 @@ jest.mock("../src/jobs/queues/notification.queue", () => ({
 jest.mock("../src/modules/auth/auth.repository", () => ({
   authRepository: {
     findOne: jest.fn(),
+    findActiveAdminsByOrganization: jest.fn(),
     findActiveEmployeesByOrganization: jest.fn(),
     countUsers: jest.fn(),
     create: jest.fn(),
@@ -50,9 +51,9 @@ const recipientId = new mongoose.Types.ObjectId().toString();
 const otherOrganizationId = new mongoose.Types.ObjectId().toString();
 const otherRecipientId = new mongoose.Types.ObjectId().toString();
 
-const activeEmployee = (id: string) => ({
+const activeAdmin = (id: string) => ({
   _id: new mongoose.Types.ObjectId(id),
-  role: "employee",
+  role: "admin",
   isActive: true,
 });
 
@@ -63,7 +64,7 @@ describe("Notification Center and tenant boundaries", () => {
 
   it("queues every notification event type with deterministic idempotency keys", async () => {
     (authRepository.findOne as jest.Mock).mockResolvedValue(
-      activeEmployee(recipientId)
+      activeAdmin(recipientId)
     );
 
     const eventTypes = [
@@ -130,9 +131,9 @@ describe("Support-team membership validation", () => {
     );
   });
 
-  it("accepts only active employee members from the same organization", async () => {
-    (authRepository.findActiveEmployeesByOrganization as jest.Mock).mockResolvedValue([
-      activeEmployee(recipientId),
+  it("accepts only active admin members from the same organization", async () => {
+    (authRepository.findActiveAdminsByOrganization as jest.Mock).mockResolvedValue([
+      activeAdmin(recipientId),
     ]);
 
     const team = await createSupportTeam({
@@ -146,8 +147,8 @@ describe("Support-team membership validation", () => {
   });
 
   it("rejects inactive, invalid, and cross-tenant members on create and update", async () => {
-    (authRepository.findActiveEmployeesByOrganization as jest.Mock).mockResolvedValue([
-      activeEmployee(recipientId),
+    (authRepository.findActiveAdminsByOrganization as jest.Mock).mockResolvedValue([
+      activeAdmin(recipientId),
     ]);
 
     await expect(
@@ -156,7 +157,7 @@ describe("Support-team membership validation", () => {
         organizationId,
         members: [otherRecipientId],
       })
-    ).rejects.toThrow("active employees in this organization");
+    ).rejects.toThrow("active admins in this organization");
 
     await expect(
       updateSupportTeam(

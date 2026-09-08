@@ -721,6 +721,7 @@ const getEscalationRecipients = async (
       _id: userId,
       organizationId,
       isActive: true,
+      role: "admin",
     });
 
     return user ? [user._id.toString()] : [];
@@ -747,6 +748,7 @@ const getEscalationRecipients = async (
       _id: memberId,
       organizationId,
       isActive: true,
+      role: "admin",
     });
 
     if (member) {

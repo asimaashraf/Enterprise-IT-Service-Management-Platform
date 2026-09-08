@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { authenticate } from "../../middleware/auth.middleware";
+import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 import {
   createNotificationController,
@@ -26,6 +26,7 @@ router.use(authenticate);
 
 router.post(
   "/",
+  authorize("admin"),
   createNotificationController
 );
 

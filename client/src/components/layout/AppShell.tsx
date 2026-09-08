@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { NotificationSocketBridge } from '@/components/notifications/NotificationSocketBridge'
 
 /**
  * Authenticated application shell.
@@ -13,6 +14,7 @@ import { Topbar } from './Topbar'
 export function AppShell() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
+      <NotificationSocketBridge />
       {/* Desktop sidebar */}
       <div className="hidden md:block">
         <Sidebar />

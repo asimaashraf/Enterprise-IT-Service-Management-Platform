@@ -9,6 +9,10 @@ import {
   markAllNotificationsAsRead,
   deleteNotification,
 } from "./notification.service";
+import {
+  NotificationValidationError,
+  validateNotificationContent,
+} from "./notification.validation";
 
 // ==========================================
 // CREATE NOTIFICATION
@@ -19,21 +23,8 @@ export const createNotificationController = async (
   res: Response
 ) => {
   try {
-    const {
-      recipient,
-      type,
-      title,
-      message,
-      priority,
-      relatedEntity,
-    } = req.body;
-
-    if (
-      !recipient ||
-      !type ||
-      !title ||
-      !message
-    ) {
+    const recipient = req.body?.recipient;
+    if (typeof recipient !== "string") {
       return res.status(400).json({
         success: false,
         message:
@@ -51,15 +42,13 @@ export const createNotificationController = async (
       });
     }
 
+    const content = validateNotificationContent(req.body);
+
     const notification =
       await createNotification({
         recipient,
         organizationId: user.organizationId,
-        type,
-        title,
-        message,
-        priority,
-        relatedEntity,
+        ...content,
       });
 
     return res.status(201).json({
@@ -69,6 +58,19 @@ export const createNotificationController = async (
       data: notification,
     });
   } catch (error: any) {
+    if (
+      error instanceof NotificationValidationError ||
+      error.message === "Invalid recipient ID" ||
+      error.message === "Invalid organization ID" ||
+      error.message === "Invalid related entity ID" ||
+      error.message === "Notification recipient is inactive or does not belong to this organization"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message,

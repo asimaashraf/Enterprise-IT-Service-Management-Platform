@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Bell,
   Microscope,
   AlertTriangle,
   Package,
@@ -35,6 +36,7 @@ export const navGroups: NavGroup[] = [
     label: 'Overview',
     items: [
       { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+      { label: 'Notifications', to: '/notifications', icon: Bell },
     ],
   },
   {

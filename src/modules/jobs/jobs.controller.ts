@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 
 import { jobQueue } from "../../queues/job.queue";
 import { notificationQueue } from "../../jobs/queues/notification.queue";
+import { authRepository } from "../auth/auth.repository";
+import {
+  NotificationValidationError,
+  validateNotificationContent,
+} from "../notification/notification.validation";
 
 // ==========================================
 // TEST JOB
@@ -59,7 +65,6 @@ export const testNotificationJob = async (
   try {
     const {
       userId,
-      organizationId,
       title,
       message,
       type,
@@ -74,35 +79,67 @@ export const testNotificationJob = async (
 
     if (
       !userId ||
-      !organizationId ||
       !title ||
       !message
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "userId, organizationId, title and message are required",
+          "userId, title and message are required",
       });
     }
 
-    // ======================================
-    // ADD NOTIFICATION JOB
-    // ======================================
+    const user = (req as any).user;
+    if (!user?.organizationId) {
+      return res.status(401).json({
+        success: false,
+        message: "Organization information not found",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid userId",
+      });
+    }
+
+    const recipient = await authRepository.findOne({
+      _id: userId,
+      organizationId: user.organizationId,
+      isActive: true,
+    });
+
+    if (!recipient) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Notification recipient is inactive or does not belong to this organization",
+      });
+    }
+
+    const content = validateNotificationContent({
+      type: type || "System",
+      title,
+      message,
+      priority,
+      relatedEntity:
+        entityType === undefined && entityId === undefined
+          ? undefined
+          : { entityType, entityId },
+    });
+    const { relatedEntity, ...notificationContent } = content;
 
     const job =
       await notificationQueue.add(
         "notification-created",
         {
           userId,
-          organizationId,
-          title,
-          message,
-          type:
-            type || "System",
-          entityType,
-          entityId,
-          priority:
-            priority || "Medium",
+          organizationId: user.organizationId,
+          ...notificationContent,
+          entityType: relatedEntity?.entityType,
+          entityId: relatedEntity?.entityId,
+          priority: notificationContent.priority || "Medium",
         }
       );
 
@@ -119,6 +156,13 @@ export const testNotificationJob = async (
       jobId: job.id,
     });
   } catch (error) {
+    if (error instanceof NotificationValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     console.error(
       "Notification job error:",
       error

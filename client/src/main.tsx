@@ -40,6 +40,7 @@ import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
 import { ShowcasePage } from '@/pages/showcase/ShowcasePage'
+import { NotificationsPage } from '@/pages/NotificationsPage'
 
 import '@/styles/index.css'
 
@@ -123,6 +124,7 @@ if (!rootElement.innerHTML) {
                       element={<KnowledgeBasePage />}
                     />
                     <Route path="/analytics" element={<AnalyticsPage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
 
                     {/*
                      * User Management — admin only.

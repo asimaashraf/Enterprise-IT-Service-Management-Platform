@@ -146,43 +146,50 @@ export function IncidentDetailPage() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Left column — main details */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* Description */}
+      {/* Compact scan line for the fields operators need first. */}
+      <Card>
+        <CardContent className="grid items-start gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {isAdmin && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</p>
+              <StatusBadge status={normalizeStatusVariant(incident.status)} className="text-sm px-3 py-1">
+                {incident.status}
+              </StatusBadge>
+              {incident.closedAt && <p className="text-xs text-muted-foreground">Closed {formatDate(incident.closedAt)}</p>}
+            </div>
+          )}
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Priority</p>
+            <StatusBadge status={normalizePriorityVariant(incident.priority)}>{incident.priority}</StatusBadge>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Severity</p>
+            <StatusBadge status={normalizeSeverityVariant(incident.severity)}>{incident.severity}</StatusBadge>
+          </div>
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned To</p>
+            <p className="truncate font-medium">{getUserDisplay(incident.assignedTo)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+        <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Description</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle>Description</CardTitle></CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                {incident.description}
-              </p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{incident.description}</p>
             </CardContent>
           </Card>
 
-          {/* Resolution */}
           {(incident.resolution || incident.status === 'Resolved' || incident.status === 'Closed') && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  Resolution
-                </CardTitle>
-                {incident.resolvedAt && (
-                  <CardDescription>
-                    Resolved on {formatDate(incident.resolvedAt)}
-                  </CardDescription>
-                )}
+                <CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600" />Resolution</CardTitle>
+                {incident.resolvedAt && <CardDescription>Resolved on {formatDate(incident.resolvedAt)}</CardDescription>}
               </CardHeader>
               <CardContent>
-                {incident.resolution ? (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {incident.resolution}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">No resolution notes provided.</p>
-                )}
+                {incident.resolution ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{incident.resolution}</p> : <p className="text-sm italic text-muted-foreground">No resolution notes provided.</p>}
               </CardContent>
             </Card>
           )}
@@ -190,102 +197,29 @@ export function IncidentDetailPage() {
           <IncidentSLACard incidentId={incident._id} />
         </div>
 
-        {/* Right column — metadata */}
-        <div className="space-y-4">
-          {/* Status card */}
-          {isAdmin && <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Status</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              <div>
-                <StatusBadge status={normalizeStatusVariant(incident.status)} className="text-sm px-3 py-1">
-                  {incident.status}
-                </StatusBadge>
-              </div>
-              {incident.closedAt && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Closed on {formatDate(incident.closedAt)}
-                </p>
-              )}
-            </CardContent>
-          </Card>}
-
-          {/* Classification */}
+        <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Classification</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Priority</span>
-                <StatusBadge status={normalizePriorityVariant(incident.priority)}>
-                  {incident.priority}
-                </StatusBadge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Severity</span>
-                <StatusBadge status={normalizeSeverityVariant(incident.severity)}>
-                  {incident.severity}
-                </StatusBadge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* People */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">People</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">People</CardTitle></CardHeader>
             <CardContent className="divide-y">
-              <InfoRow
-                icon={User}
-                label="Reported By"
-                value={getUserDisplay(incident.reportedBy)}
-              />
-              <InfoRow
-                icon={User}
-                label="Assigned To"
-                value={getUserDisplay(incident.assignedTo)}
-              />
+              <InfoRow icon={User} label="Reported By" value={getUserDisplay(incident.reportedBy)} />
+              <InfoRow icon={User} label="Assigned To" value={getUserDisplay(incident.assignedTo)} />
             </CardContent>
           </Card>
 
-          {/* Timeline */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Timeline</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Timeline</CardTitle></CardHeader>
             <CardContent className="divide-y">
-              <InfoRow
-                icon={Clock}
-                label="Created"
-                value={formatDate(incident.createdAt)}
-              />
-              <InfoRow
-                icon={Clock}
-                label="Last Updated"
-                value={formatDate(incident.updatedAt)}
-              />
-              {incident.resolvedAt && (
-                <InfoRow
-                  icon={CheckCircle}
-                  label="Resolved"
-                  value={formatDate(incident.resolvedAt)}
-                />
-              )}
-              {incident.closedAt && (
-                <InfoRow
-                  icon={XCircle}
-                  label="Closed"
-                  value={formatDate(incident.closedAt)}
-                />
-              )}
+              <InfoRow icon={Clock} label="Created" value={formatDate(incident.createdAt)} />
+              <InfoRow icon={Clock} label="Last Updated" value={formatDate(incident.updatedAt)} />
+              {incident.resolvedAt && <InfoRow icon={CheckCircle} label="Resolved" value={formatDate(incident.resolvedAt)} />}
+              {incident.closedAt && <InfoRow icon={XCircle} label="Closed" value={formatDate(incident.closedAt)} />}
             </CardContent>
           </Card>
+        </div>
+      </div>
 
-          {/* Escalation Policy */}
-          <Card>
+      {/* Escalation policy gets the full content width so its target details remain readable. */}
+      <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <TrendingUp className="h-4 w-4" />
@@ -359,9 +293,7 @@ export function IncidentDetailPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
-        </div>
-      </div>
+      </Card>
 
       <ConfirmDialog
         open={deleteDialogOpen}

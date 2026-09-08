@@ -9,7 +9,7 @@ import {
   testEmailJob,
 } from "./email-test.controller";
 
-import { authenticate } from "../../middleware/auth.middleware";
+import { authenticate, authorize } from "../../middleware/auth.middleware";
 
 const router = express.Router();
 
@@ -30,6 +30,7 @@ router.post(
 router.post(
   "/test-notification",
   authenticate,
+  authorize("admin"),
   testNotificationJob
 );
 

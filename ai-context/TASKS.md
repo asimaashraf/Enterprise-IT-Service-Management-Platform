@@ -24,6 +24,7 @@ Backend verification complete. All mandatory backend capabilities implemented an
 # Next Tasks
 
 - [ ] Build required React frontend after backend contracts stabilize.
+- [x] Implement Phase 12B frontend notifications: session-scoped feed API/hooks, authenticated Socket.IO notification lifecycle, realtime cache synchronization, accessible bell, and protected notification history.
 
 # Completed
 
@@ -68,3 +69,7 @@ Backend verification complete. All mandatory backend capabilities implemented an
 - [x] Removed analytics chart/data-list inner vertical scrollers and grid card stretching. Shared shell unchanged.
 - [x] Bound the authenticated shell's flex content column and scroll viewport with `min-h-0`, eliminating Analytics' excess post-content scroll range without changing chart sizing.
 - [ ] Confirm recorded blank-above-content symptom on desktop/mobile in a connected browser; no browser was available during this pass.
+
+## Phase 12A — Notification backend hardening
+
+- [x] Restricted direct notification creation and the test notification job to ADMIN, derived all notification job tenant context from the JWT, validated direct payloads, and added recipient ownership/tenant/SLA escalation regression coverage.
