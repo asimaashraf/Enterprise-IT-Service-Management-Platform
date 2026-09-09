@@ -266,7 +266,7 @@ const authSlice = createSlice({
         state.status = 'loading'
         state.error = null
       })
-      .addCase(registerThunk.fulfilled, (state, action) => {
+      .addCase(registerThunk.fulfilled, (state) => {
         state.user = null
         state.token = null
         state.status = 'unauthenticated'
