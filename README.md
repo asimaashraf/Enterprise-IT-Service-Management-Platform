@@ -49,7 +49,35 @@ The backend follows route, controller, service, repository/model boundaries wher
 
 ## Platform Preview
 
-Screenshots are intentionally not fabricated. Add captures from the real running application under `docs/assets/screenshots/` when the submission walkthrough is recorded.
+The following screenshots were captured from the running ITSM platform and demonstrate the implemented workflows, administration features, analytics, and observability stack.
+
+### Dashboard
+
+![ITSM Dashboard](docs/assets/screenshots/01-dashboard.png)
+
+### Incident Management and SLA
+
+| Incident Details | SLA Management |
+| --- | --- |
+| ![Incident Details](docs/assets/screenshots/02-incident-details.png) | ![SLA Management](docs/assets/screenshots/03-sla-management.png) |
+
+### Asset and Change Management
+
+| Asset Management | Change Management |
+| --- | --- |
+| ![Asset Management](docs/assets/screenshots/04-asset-management.png) | ![Change Management](docs/assets/screenshots/05-change-management.png) |
+
+### Root Cause Analysis and Knowledge Base
+
+| Root Cause Analysis | Knowledge Base |
+| --- | --- |
+| ![Root Cause Analysis](docs/assets/screenshots/06-root-cause-analysis.png) | ![Knowledge Base](docs/assets/screenshots/07-knowledge-base.png) |
+
+### Analytics and Observability
+
+| Analytics Dashboard | Grafana Monitoring |
+| --- | --- |
+| ![Analytics Dashboard](docs/assets/screenshots/08-analytics.png) | ![Grafana Monitoring](docs/assets/screenshots/09-grafana-monitoring.png) |
 
 ## Key ITSM Modules
 
@@ -220,4 +248,4 @@ The current design separates API and worker processes, uses tenant-oriented inde
 
 ## Project / Submission Status
 
-The current ITSM implementation is feature-complete for the implemented case-study scope and has a verified backend/frontend build checkpoint. The repository is organized for internship submission. Final real-application screenshots and a connected Docker runtime recheck remain presentation and environment follow-up work; no production certification is claimed.
+The current ITSM implementation is feature-complete for the implemented case-study scope and has a verified backend/frontend build checkpoint. The repository is organized for internship submission. Real-application screenshots from the completed walkthrough are included above, together with the documented Docker, Prometheus, and Grafana observability configuration. No production certification is claimed.
