@@ -66,7 +66,7 @@ export const loginThunk = createAsyncThunk<
 })
 
 export const registerThunk = createAsyncThunk<
-  AuthSession,
+  { user: AuthUser },
   RegisterPayload,
   { rejectValue: ApiRejection }
 >('auth/register', async (payload, { rejectWithValue }) => {
@@ -89,7 +89,7 @@ export const registerThunk = createAsyncThunk<
  * screen instead of redirecting.
  */
 export const registerAndVerifyThunk = createAsyncThunk<
-  AuthSession,
+  { user: AuthUser },
   RegisterPayload,
   { rejectValue: ApiRejection }
 >('auth/registerAndVerify', async (payload, { rejectWithValue }) => {
@@ -232,6 +232,7 @@ const authSlice = createSlice({
       state.token = action.payload.token
       state.status = 'authenticated'
       state.error = null
+      authStorage.setSession(action.payload)
     },
     clearAuth(state) {
       state.user = null
@@ -266,11 +267,10 @@ const authSlice = createSlice({
         state.error = null
       })
       .addCase(registerThunk.fulfilled, (state, action) => {
-        state.user = action.payload.user
-        state.token = action.payload.token
-        state.status = 'authenticated'
+        state.user = null
+        state.token = null
+        state.status = 'unauthenticated'
         state.error = null
-        authStorage.setSession(action.payload)
       })
       .addCase(registerThunk.rejected, (state, action) => {
         state.status = 'unauthenticated'
@@ -298,11 +298,14 @@ const authSlice = createSlice({
       .addCase(restoreSessionThunk.fulfilled, (state, action) => {
         state.initialized = true
         if (action.payload) {
-          // The live /auth/me response may be a partial user object for older
-          // JWTs and can omit `name`. Preserve cached fields while allowing
-          // the live response to update them.
-          state.user = state.user
-            ? { ...state.user, ...action.payload }
+          const sameAccount = state.user?.id === action.payload.id &&
+            state.user?.organizationId === action.payload.organizationId
+          // /auth/me echoes JWT claims, not a fresh database profile. Keep
+          // saved display fields for this account only, after token validation.
+          state.user = sameAccount && state.user
+            ? { ...state.user, ...action.payload,
+                name: state.user.name ?? action.payload.name,
+                email: state.user.email ?? action.payload.email }
             : action.payload
           state.status = 'authenticated'
         } else {

@@ -10,5 +10,6 @@ export {
   forgotPasswordThunk,
   resetPasswordThunk,
   clearError,
+  setCredentials,
   type AuthStatus,
 } from './authSlice'

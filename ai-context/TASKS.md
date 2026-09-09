@@ -23,6 +23,10 @@ Backend verification complete. All mandatory backend capabilities implemented an
 
 # Next Tasks
 
+- [x] Phase 15A Profile & Final UI Polish: protected own profile for both roles; ADMIN name/email editing through the existing safe endpoint, EMPLOYEE read-only under verified RBAC; organization hook reuse; Profile/Settings dropdown links; persisted identity and same-account JWT restoration fix; missing status/date handled honestly. Typecheck, explicit app check, lint/build/diff and 13 focused tests pass (existing lint/chunk warnings only). No backend changes.
+- [x] Phase 15B integration and observability verification: stale audit/E2E/Knowledge Base fixtures corrected; OpenAPI validation and 129-route inventory pass; Prometheus metrics and target scrape verified; Grafana datasource/dashboard provisioning verified; Docker Compose API, worker, MongoDB, Redis, Prometheus, and Grafana runtime healthy; tenant/RBAC integration 50/50; backend 669/669 tests; frontend typecheck/build pass and lint has only four existing User Management warnings plus the existing chunk-size warning. Browser walkthrough remains a manual follow-up because no connected browser session was available.
+- [ ] Phase 15C final freeze remains pending.
+
 - [ ] Build required React frontend after backend contracts stabilize.
 - [x] Implement Phase 13B frontend: organization profile in Settings (ADMIN edit / EMPLOYEE read-only), guarded Department Management CRUD, session-scoped API/hooks, and links to existing Users/Support Teams. Typecheck, lint, production build, and diff whitespace check pass; four existing User Management lint warnings and bundle-size warning remain.
 - [x] Phase 13C: integrate safe user profile editing, session-scoped directory/assignee queries across consumers, precise user/team mutation invalidation, Support Team 409 feedback, and canonical ADMIN/EMPLOYEE role guards. Focused contract tests: `cd client && node --test tests/directory-contract.test.cjs` (5 passed). Frontend typecheck (including app project), lint, production build, and diff check pass; four existing User Management lint warnings and bundle-size warning remain. No backend changes.

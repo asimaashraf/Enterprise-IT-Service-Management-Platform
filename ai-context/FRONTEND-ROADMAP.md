@@ -643,6 +643,22 @@ All major pages are responsive, keyboard-usable, and consistently handle loading
 
 Perform final frontend/backend integration verification and freeze the completed application.
 
+## Phase 15A - Final Profile & UI Polish
+
+- [x] Protected own-profile page for ADMIN and EMPLOYEE, with responsive shared components, accessible validation, organization lookup, and working Profile/Settings dropdown links.
+- [x] Existing ADMIN-only `PUT /users/:id` edits name/email only; EMPLOYEE remains read-only. No authenticated password-change endpoint exists; no backend changes or unsupported controls added.
+- [x] Saved identity updates Redux and storage immediately; same-account restoration preserves saved display fields because `/auth/me` echoes JWT claims. Directory invalidation and delayed mutation callbacks remain session-scoped.
+- [x] Automated verification: frontend typecheck, explicit app TypeScript check, lint (four existing User Management warnings), production build (existing chunk-size warning), diff check, and 13 focused contract/session tests.
+
+Runtime limitation: no connected browser or reachable local API was available. ADMIN save/dropdown/Settings/logout, EMPLOYEE read-only Profile/Settings, and mobile/tablet/desktop keyboard walkthroughs remain Phase 15B verification work. Session data omits account status/joined date; these are shown as unavailable when absent. Organization name uses the existing tenant/session-scoped hook with ID fallback. JWT claims are not a live database profile, so edits made elsewhere are not refreshed by `/auth/me`.
+
+## Phase 15B - Integration Testing (complete)
+
+- [x] Verified backend ADMIN/EMPLOYEE tenant/RBAC behavior with 50 integration tests, including role restrictions and tenant isolation.
+- [x] Verified OpenAPI validation and route inventory, Prometheus metrics and target scraping, Grafana datasource/dashboard provisioning, and Docker Compose health for API, worker, MongoDB, Redis, Prometheus, and Grafana.
+- [x] Verified the frontend with typecheck and production build; lint has four pre-existing User Management warnings and the existing chunk-size warning. Backend verification completed with 669/669 tests passing.
+- [ ] Manual browser walkthrough of ADMIN/EMPLOYEE profile and Settings flows, logout/login isolation, responsive viewports, and keyboard navigation remains for a connected browser session.
+
 ## Tasks
 
 - [ ] Perform an end-to-end manual walkthrough of all modules within authenticated user sessions
@@ -661,6 +677,10 @@ Perform final frontend/backend integration verification and freeze the completed
 - [ ] Update README
 - [ ] Update relevant `ai-context` documentation
 - [ ] Mark all completed phases in this roadmap
+
+## Phase 15C - Final Freeze (pending)
+
+- [ ] Complete final freeze after integration verification and the exit criteria below.
 
 ## Exit Criteria
 

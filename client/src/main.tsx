@@ -43,6 +43,7 @@ import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { AcceptInvitePage } from '@/pages/auth/AcceptInvitePage'
 import { ShowcasePage } from '@/pages/showcase/ShowcasePage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 
 import '@/styles/index.css'
 
@@ -127,6 +128,7 @@ if (!rootElement.innerHTML) {
                     />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
 
                     {/*
                      * User Management — admin only.

@@ -18,11 +18,11 @@ export interface AuthUser {
   role: UserRole
   organizationId: string
   /** Whether the user has verified their email address. */
-  isEmailVerified: boolean
+  isEmailVerified?: boolean
   /** Whether the user account is active. Inactive/blocked users cannot log in. */
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
+  isActive?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface AuthSession {

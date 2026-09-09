@@ -7,6 +7,8 @@ import type {
   RegisterPayload,
 } from '@/types/auth'
 
+type RegistrationResponse = { user: AuthUser }
+
 const unwrap = <T>(response: { data: unknown }): T => {
   const envelope = response.data as ApiEnvelope<T>
   if (!envelope.success || envelope.data === undefined) {
@@ -47,12 +49,12 @@ export const authApi = {
     return unwrap<AuthSession>(response)
   },
 
-  async register(payload: RegisterPayload): Promise<AuthSession> {
-    const response = await apiClient.post<ApiEnvelope<AuthSession>>(
+  async register(payload: RegisterPayload): Promise<RegistrationResponse> {
+    const response = await apiClient.post<ApiEnvelope<RegistrationResponse>>(
       '/auth/register',
       payload,
     )
-    return unwrap<AuthSession>(response)
+    return unwrap<RegistrationResponse>(response)
   },
 
   async getCurrentUser(): Promise<AuthUser> {
